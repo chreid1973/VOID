@@ -1,0 +1,162 @@
+// prisma/schema.prisma
+// Supabase requires two connection URLs:
+//   DATABASE_URL → Transaction pooler (port 6543) — runtime queries
+//   DIRECT_URL   → Direct connection  (port 5432) — prisma migrate only
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  clerkId      String    @unique
+  username     String    @unique
+  displayName  String?
+  bio          String?
+  avatarUrl    String?
+  karmaPost    Int       @default(0)
+  karmaComment Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  posts       Post[]
+  comments    Comment[]
+  votes       Vote[]
+  postSaves   SavedPost[]
+  memberships CommunityMember[]
+
+  @@index([clerkId])
+  @@index([username])
+}
+
+model Community {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  displayName String
+  description String?
+  icon        String   @default("⚡")
+  color       String   @default("#5b8dee")
+  isNSFW      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  posts   Post[]
+  members CommunityMember[]
+
+  @@index([name])
+}
+
+model CommunityMember {
+  id          String   @id @default(cuid())
+  userId      String
+  communityId String
+  role        Role     @default(MEMBER)
+  joinedAt    DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, communityId])
+}
+
+enum Role {
+  MEMBER
+  MODERATOR
+  ADMIN
+}
+
+model Post {
+  id           String   @id @default(cuid())
+  title        String
+  body         String?
+  url          String?
+  imageKey     String?
+  type         PostType @default(TEXT)
+  flair        String?
+  flairColor   String?
+  score        Int      @default(0)
+  commentCount Int      @default(0)
+  isNSFW       Boolean  @default(false)
+  isLocked     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  authorId    String
+  communityId String
+
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  comments  Comment[]
+  votes     Vote[]
+  saves     SavedPost[]
+
+  @@index([communityId, createdAt(sort: Desc)])
+  @@index([score(sort: Desc)])
+  @@index([authorId])
+}
+
+enum PostType {
+  TEXT
+  LINK
+  IMAGE
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  body      String
+  score     Int      @default(0)
+  isDeleted Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  authorId String
+  postId   String
+  parentId String?
+
+  author  User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post    Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parent  Comment?  @relation("Replies", fields: [parentId], references: [id])
+  replies Comment[] @relation("Replies")
+  votes   Vote[]
+
+  @@index([postId, createdAt])
+  @@index([parentId])
+  @@index([authorId])
+}
+
+model Vote {
+  id        String   @id @default(cuid())
+  value     Int
+  createdAt DateTime @default(now())
+
+  userId    String
+  postId    String?
+  commentId String?
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post    Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@unique([userId, commentId])
+  @@index([postId])
+  @@index([commentId])
+}
+
+model SavedPost {
+  id      String   @id @default(cuid())
+  userId  String
+  postId  String
+  savedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+}

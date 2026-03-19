@@ -1,0 +1,8 @@
+export default function HomePage() {
+  return (
+    <main style={{ padding: "40px", color: "white", background: "#0b0b0b", minHeight: "100vh" }}>
+      <h1>Void</h1>
+      <p>The app is running. The homepage route exists now.</p>
+    </main>
+  );
+}
