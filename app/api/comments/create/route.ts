@@ -10,9 +10,10 @@ export async function POST(req: Request) {
   }
 
   const json = await req.json();
-  const { postId, body } = json as {
+  const { postId, body, parentId } = json as {
     postId?: string;
     body?: string;
+    parentId?: string | null;
   };
 
   if (!postId?.trim() || !body?.trim()) {
@@ -21,6 +22,10 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
+
+  const trimmedPostId = postId.trim();
+  const trimmedBody = body.trim();
+  const trimmedParentId = parentId?.trim() || null;
 
   let user = await prisma.user.findUnique({
     where: { clerkId: userId },
@@ -35,16 +40,31 @@ export async function POST(req: Request) {
     });
   }
 
+  if (trimmedParentId) {
+    const parent = await prisma.comment.findUnique({
+      where: { id: trimmedParentId },
+      select: { postId: true },
+    });
+
+    if (!parent || parent.postId !== trimmedPostId) {
+      return NextResponse.json(
+        { error: "Invalid parent comment." },
+        { status: 400 }
+      );
+    }
+  }
+
   await prisma.comment.create({
     data: {
-      body: body.trim(),
-      postId,
+      body: trimmedBody,
+      postId: trimmedPostId,
       authorId: user.id,
+      parentId: trimmedParentId,
     },
   });
 
   await prisma.post.update({
-    where: { id: postId },
+    where: { id: trimmedPostId },
     data: {
       commentCount: {
         increment: 1,

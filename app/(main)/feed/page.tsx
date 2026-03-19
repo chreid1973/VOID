@@ -1,4 +1,5 @@
 import FeedClient from "../../../components/FeedClient";
+import { getCurrentUser } from "../../../auth";
 import { prisma } from "../../../lib/prisma";
 
 function timeAgo(date: Date) {
@@ -22,7 +23,20 @@ function timeAgo(date: Date) {
   return `${years}y`;
 }
 
-export default async function FeedPage() {
+function formatUserVote(value: number | null | undefined): 1 | -1 | null {
+  return value === 1 ? 1 : value === -1 ? -1 : null;
+}
+
+export default async function FeedPage({
+  searchParams,
+}: {
+  searchParams?: { community?: string | string[] };
+}) {
+  const user = await getCurrentUser();
+  const initialSelectedCommunity = Array.isArray(searchParams?.community)
+    ? searchParams.community[0] ?? null
+    : searchParams?.community ?? null;
+
   const [posts, communities] = await Promise.all([
     prisma.post.findMany({
       orderBy: { createdAt: "desc" },
@@ -61,6 +75,22 @@ export default async function FeedPage() {
       },
     }),
   ]);
+  const postVotes =
+    user && posts.length > 0
+      ? await prisma.vote.findMany({
+          where: {
+            userId: user.id,
+            postId: { in: posts.map((post) => post.id) },
+          },
+          select: {
+            postId: true,
+            value: true,
+          },
+        })
+      : [];
+  const postVoteMap = new Map(
+    postVotes.map((vote) => [vote.postId as string, vote.value])
+  );
 
   const formattedPosts = posts.map((post) => ({
     id: post.id,
@@ -73,6 +103,7 @@ export default async function FeedPage() {
     time: timeAgo(post.createdAt),
     flair: post.flair,
     flairColor: post.flairColor,
+    userVote: formatUserVote(postVoteMap.get(post.id)),
   }));
 
   const formattedCommunities = communities.map((community) => ({
@@ -89,6 +120,7 @@ export default async function FeedPage() {
     <FeedClient
       initialPosts={formattedPosts}
       communities={formattedCommunities}
+      initialSelectedCommunity={initialSelectedCommunity}
     />
   );
 }

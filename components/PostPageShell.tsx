@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import "../app/(main)/feed/feed.css";
+import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
 
 type CommunityItem = {
   id: string;
@@ -29,12 +30,25 @@ type RailPost = {
 type PostComment = {
   id: string;
   body: string;
+  score: number;
+  userVote: 1 | -1 | null;
   createdAt: string;
   author: {
     username: string;
     displayName: string | null;
   };
+  replies: {
+    id: string;
+    body: string;
+    createdAt: string;
+    author: {
+      username: string;
+      displayName: string | null;
+    };
+  }[];
 };
+
+type CommentSort = "best" | "new" | "old";
 
 type PostData = {
   id: string;
@@ -42,6 +56,7 @@ type PostData = {
   body: string | null;
   createdAt: string;
   score: number;
+  userVote: 1 | -1 | null;
   commentCount: number;
   author: {
     username: string;
@@ -61,8 +76,8 @@ function fmt(n: number) {
   return n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n);
 }
 
-function norm(value: string | null | undefined) {
-  return (value ?? "").trim().toLowerCase();
+function voteDirection(value: 1 | -1 | null | undefined) {
+  return value === 1 ? "up" : value === -1 ? "dn" : null;
 }
 
 function timeAgo(dateString: string) {
@@ -82,48 +97,86 @@ function timeAgo(dateString: string) {
   return `${years}y ago`;
 }
 
-function Badge({
-  name,
-  displayName,
-  color,
-  icon,
-}: {
-  name: string;
-  displayName: string;
-  color: string;
-  icon: string;
-}) {
-  return (
-    <Link
-      href={`/feed?community=${encodeURIComponent(name)}`}
-      style={{ textDecoration: "none" }}
-    >
-      <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 4,
-          fontSize: 11.5,
-          fontWeight: 600,
-          color,
-          padding: "2px 8px 2px 5px",
-          background: color + "18",
-          borderRadius: 20,
-        }}
-      >
-        <span style={{ fontSize: 9.5 }}>{icon}</span>
-        {displayName}
-      </span>
-    </Link>
-  );
+function sortComments(comments: PostComment[], sort: CommentSort) {
+  const sorted = [...comments];
+
+  sorted.sort((a, b) => {
+    const aTime = new Date(a.createdAt).getTime();
+    const bTime = new Date(b.createdAt).getTime();
+
+    if (sort === "old") return aTime - bTime;
+    if (sort === "new") return bTime - aTime;
+
+    return b.score - a.score || bTime - aTime;
+  });
+
+  return sorted;
 }
 
-function Votes({ n, vertical = false }: { n: number; vertical?: boolean }) {
-  const [v, setV] = useState<"up" | "dn" | null>(null);
-  const base = Number.isFinite(n) ? n : 0;
-  const count = base + (v === "up" ? 1 : v === "dn" ? -1 : 0);
+function Votes({
+  postId,
+  n,
+  initialVote,
+  vertical = false,
+}: {
+  postId: string;
+  n: number;
+  initialVote: 1 | -1 | null;
+  vertical?: boolean;
+}) {
+  const [v, setV] = useState<"up" | "dn" | null>(voteDirection(initialVote));
+  const [count, setCount] = useState(Number.isFinite(n) ? n : 0);
+  const [pending, setPending] = useState(false);
   const col = v === "up" ? "#ff4826" : v === "dn" ? "#5b8dee" : "#7a7774";
   const dir = vertical ? "column" : "row";
+
+  async function handleVote(nextDirection: "up" | "dn") {
+    if (pending) return;
+
+    const prevVote = v;
+    const prevCount = count;
+    const nextVote = prevVote === nextDirection ? null : nextDirection;
+    const nextCount =
+      prevCount +
+      (nextVote === "up" ? 1 : nextVote === "dn" ? -1 : 0) -
+      (prevVote === "up" ? 1 : prevVote === "dn" ? -1 : 0);
+
+    setV(nextVote);
+    setCount(nextCount);
+    setPending(true);
+
+    try {
+      const res = await fetch("/api/votes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          targetId: postId,
+          targetType: "post",
+          value: nextVote === null ? 0 : nextDirection === "up" ? 1 : -1,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setV(prevVote);
+        setCount(prevCount);
+        alert(data?.error || "Vote failed");
+        return;
+      }
+
+      setV(data?.userVote === 1 ? "up" : data?.userVote === -1 ? "dn" : null);
+      setCount(typeof data?.score === "number" ? data.score : nextCount);
+    } catch {
+      setV(prevVote);
+      setCount(prevCount);
+      alert("Vote failed");
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
     <div
@@ -136,7 +189,7 @@ function Votes({ n, vertical = false }: { n: number; vertical?: boolean }) {
     >
       <button
         className={`vbtn up ${v === "up" ? "voted-up" : ""}`}
-        onClick={() => setV(v === "up" ? null : "up")}
+        onClick={() => void handleVote("up")}
         type="button"
       >
         ▲
@@ -156,7 +209,7 @@ function Votes({ n, vertical = false }: { n: number; vertical?: boolean }) {
       </span>
       <button
         className={`vbtn dn ${v === "dn" ? "voted-dn" : ""}`}
-        onClick={() => setV(v === "dn" ? null : "dn")}
+        onClick={() => void handleVote("dn")}
         type="button"
       >
         ▼
@@ -165,215 +218,99 @@ function Votes({ n, vertical = false }: { n: number; vertical?: boolean }) {
   );
 }
 
-function TopBar() {
+function CommentVotes({
+  commentId,
+  n,
+  initialVote,
+}: {
+  commentId: string;
+  n: number;
+  initialVote: 1 | -1 | null;
+}) {
+  const [v, setV] = useState<"up" | "dn" | null>(voteDirection(initialVote));
+  const [count, setCount] = useState(Number.isFinite(n) ? n : 0);
+  const [pending, setPending] = useState(false);
+  const col = v === "up" ? "#ff4826" : v === "dn" ? "#5b8dee" : "#545250";
+
+  async function handleVote(nextDirection: "up" | "dn") {
+    if (pending) return;
+
+    const prevVote = v;
+    const prevCount = count;
+    const nextVote = prevVote === nextDirection ? null : nextDirection;
+    const nextCount =
+      prevCount +
+      (nextVote === "up" ? 1 : nextVote === "dn" ? -1 : 0) -
+      (prevVote === "up" ? 1 : prevVote === "dn" ? -1 : 0);
+
+    setV(nextVote);
+    setCount(nextCount);
+    setPending(true);
+
+    try {
+      const res = await fetch("/api/votes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          targetId: commentId,
+          targetType: "comment",
+          value: nextVote === null ? 0 : nextDirection === "up" ? 1 : -1,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setV(prevVote);
+        setCount(prevCount);
+        alert(data?.error || "Vote failed");
+        return;
+      }
+
+      setV(data?.userVote === 1 ? "up" : data?.userVote === -1 ? "dn" : null);
+      setCount(typeof data?.score === "number" ? data.score : nextCount);
+    } catch {
+      setV(prevVote);
+      setCount(prevCount);
+      alert("Vote failed");
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
-    <header className="feed-topbar">
-      <Link
-        href="/feed"
+    <>
+      <button
+        className={`vbtn up ${v === "up" ? "voted-up" : ""}`}
+        style={{ fontSize: 12 }}
+        onClick={() => void handleVote("up")}
+        type="button"
+      >
+        ▲
+      </button>
+      <span
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 7,
-          cursor: "pointer",
-          flexShrink: 0,
-          userSelect: "none",
-          textDecoration: "none",
+          fontSize: 11.5,
+          fontWeight: 700,
+          color: col,
+          padding: "0 4px",
+          fontVariantNumeric: "tabular-nums",
+          letterSpacing: "-.01em",
         }}
       >
-        <div
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 9,
-            background: "linear-gradient(135deg, #ff4826 0%, #ff8040 100%)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 15,
-            boxShadow: "0 2px 10px rgba(255,72,38,.35)",
-          }}
-        >
-          ◈
-        </div>
-
-        <span
-          style={{
-            fontFamily: "var(--font-fraunces), Georgia, serif",
-            fontSize: 22,
-            fontWeight: 700,
-            color: "#ede8e0",
-            letterSpacing: "-.04em",
-            lineHeight: 1,
-          }}
-        >
-          void
-        </span>
-      </Link>
-
-      <div
-        style={{ width: 1, height: 22, background: "#1e1d1d", flexShrink: 0 }}
-      />
-
-      <div style={{ flex: 1, maxWidth: 460, position: "relative" }}>
-        <span
-          style={{
-            position: "absolute",
-            left: 11,
-            top: "50%",
-            transform: "translateY(-50%)",
-            color: "#484644",
-            fontSize: 15,
-            pointerEvents: "none",
-          }}
-        >
-          ⌕
-        </span>
-
-        <input
-          className="si"
-          type="text"
-          placeholder="Search posts, communities, users…"
-          readOnly
-        />
-      </div>
-
-      <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
-        {["HOT", "NEW", "TOP", "RISING"].map((s, i) => (
-          <button key={s} className={`srt ${i === 0 ? "on" : ""}`} type="button">
-            {s}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-        <Link
-          href="/sign-in"
-          style={{
-            background: "none",
-            border: "1px solid #252424",
-            borderRadius: 8,
-            color: "#6a6764",
-            fontFamily: "var(--font-outfit), sans-serif",
-            fontSize: 12.5,
-            fontWeight: 600,
-            padding: "6px 14px",
-            cursor: "pointer",
-            transition: "all .15s",
-            letterSpacing: ".02em",
-            textDecoration: "none",
-          }}
-        >
-          Log in
-        </Link>
-
-        <Link
-          href="/sign-up"
-          style={{
-            background: "#ff4826",
-            border: "none",
-            borderRadius: 8,
-            color: "#fff",
-            fontFamily: "var(--font-outfit), sans-serif",
-            fontSize: 12.5,
-            fontWeight: 700,
-            padding: "6px 16px",
-            cursor: "pointer",
-            transition: "opacity .15s, transform .1s",
-            letterSpacing: ".03em",
-            boxShadow: "0 2px 10px rgba(255,72,38,.3)",
-            textDecoration: "none",
-          }}
-        >
-          Sign up
-        </Link>
-      </div>
-    </header>
-  );
-}
-
-function Sidebar({
-  communities,
-  activeCommunity,
-}: {
-  communities: CommunityItem[];
-  activeCommunity: string;
-}) {
-  return (
-    <aside className="feed-sidebar">
-      <div className="sect-label" style={{ marginTop: 8 }}>
-        Navigate
-      </div>
-
-      <Link
-        href="/feed"
-        className="com-item active"
-        style={{ textDecoration: "none" }}
+        {fmt(count)}
+      </span>
+      <button
+        className={`vbtn dn ${v === "dn" ? "voted-dn" : ""}`}
+        style={{ fontSize: 12 }}
+        onClick={() => void handleVote("dn")}
+        type="button"
       >
-        <span style={{ fontSize: 13 }}>⌂</span>
-        Home Feed
-      </Link>
-
-      <div className="com-item">
-        <span style={{ fontSize: 13 }}>🔥</span>
-        Popular
-      </div>
-
-      <div className="com-item">
-        <span style={{ fontSize: 13 }}>✦</span>
-        All Posts
-      </div>
-
-      <div className="sect-label">Communities</div>
-
-      {communities.map((c) => (
-        <Link
-          key={c.id}
-          href={`/feed?community=${encodeURIComponent(c.name)}`}
-          className={`com-item ${
-            norm(activeCommunity) === norm(c.name) ? "active" : ""
-          }`}
-          style={
-            norm(activeCommunity) === norm(c.name)
-              ? {
-                  color: c.color,
-                  background: c.color + "12",
-                  cursor: "pointer",
-                  textDecoration: "none",
-                }
-              : { cursor: "pointer", textDecoration: "none" }
-          }
-        >
-          <span
-            style={{
-              width: 22,
-              height: 22,
-              borderRadius: 6,
-              background: c.color + "1c",
-              color: c.color,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 11,
-              flexShrink: 0,
-            }}
-          >
-            {c.icon}
-          </span>
-          <span style={{ flex: 1 }}>{c.displayName}</span>
-          <span style={{ fontSize: 10, color: "#2e2d2c" }}>
-            {c.postCount}p · {c.memberCount}m
-          </span>
-        </Link>
-      ))}
-
-      <div style={{ marginTop: 28, padding: "0 10px" }}>
-        <p style={{ fontSize: 10, color: "#2c2b2a", lineHeight: 1.7 }}>
-          © 2026 Void — a better internet
-          <br />
-          Privacy · Terms · Help · Careers
-        </p>
-      </div>
-    </aside>
+        ▼
+      </button>
+    </>
   );
 }
 
@@ -503,22 +440,12 @@ function RightRail({
                   alignItems: "center",
                 }}
               >
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    fontSize: 11.5,
-                    fontWeight: 600,
-                    color: p.communityColor,
-                    padding: "2px 8px 2px 5px",
-                    background: p.communityColor + "18",
-                    borderRadius: 20,
-                  }}
-                >
-                  <span style={{ fontSize: 9.5 }}>{p.communityIcon}</span>
-                  {p.communityDisplayName}
-                </span>
+                <CommunityBadge
+                  name={p.community}
+                  displayName={p.communityDisplayName}
+                  color={p.communityColor}
+                  icon={p.communityIcon}
+                />
 
                 <span style={{ fontSize: 10.5, color: "#383635" }}>
                   {fmt(p.votes)} pts
@@ -535,13 +462,19 @@ function RightRail({
 function CommentComposer({ postId }: { postId: string }) {
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(false);
+  const [submitState, setSubmitState] = useState<{
+    tone: "success" | "error";
+    message: string;
+  } | null>(null);
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
     if (!body.trim()) return;
 
     setLoading(true);
+    setSubmitState(null);
 
     try {
       const res = await fetch("/api/comments/create", {
@@ -555,17 +488,27 @@ function CommentComposer({ postId }: { postId: string }) {
         }),
       });
 
+      const data = await res.json().catch(() => null);
+
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        alert(data?.error || "Failed to post comment");
-        setLoading(false);
+        setSubmitState({
+          tone: "error",
+          message:
+            res.status === 401
+              ? "Sign in to post a comment."
+              : data?.error || "Failed to post comment.",
+        });
         return;
       }
 
       setBody("");
+      setSubmitState({ tone: "success", message: "Comment posted." });
       router.refresh();
     } catch {
-      alert("Something went wrong while posting your comment.");
+      setSubmitState({
+        tone: "error",
+        message: "Something went wrong while posting your comment.",
+      });
     } finally {
       setLoading(false);
     }
@@ -580,7 +523,10 @@ function CommentComposer({ postId }: { postId: string }) {
       <form onSubmit={handleSubmit}>
         <textarea
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={(e) => {
+            setBody(e.target.value);
+            if (submitState) setSubmitState(null);
+          }}
           placeholder="Share your thoughts..."
           style={{
             width: "100%",
@@ -604,6 +550,21 @@ function CommentComposer({ postId }: { postId: string }) {
             e.currentTarget.style.borderColor = "#252424";
           }}
         />
+
+        {submitState ? (
+          <p
+            aria-live="polite"
+            style={{
+              fontSize: 12,
+              marginTop: 10,
+              color:
+                submitState.tone === "success" ? "#8aa37f" : "#ff8b72",
+            }}
+          >
+            {submitState.tone === "success" ? "✓ " : ""}
+            {submitState.message}
+          </p>
+        ) : null}
 
         <div
           style={{
@@ -647,6 +608,162 @@ function CommentComposer({ postId }: { postId: string }) {
   );
 }
 
+function ReplyComposer({
+  postId,
+  parentId,
+  onCancel,
+}: {
+  postId: string;
+  parentId: string;
+  onCancel: () => void;
+}) {
+  const [body, setBody] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [submitState, setSubmitState] = useState<{
+    tone: "success" | "error";
+    message: string;
+  } | null>(null);
+  const router = useRouter();
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (loading) return;
+    if (!body.trim()) return;
+
+    setLoading(true);
+    setSubmitState(null);
+
+    try {
+      const res = await fetch("/api/comments/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          postId,
+          parentId,
+          body,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setSubmitState({
+          tone: "error",
+          message:
+            res.status === 401
+              ? "Sign in to post a reply."
+              : data?.error || "Failed to post reply.",
+        });
+        return;
+      }
+
+      setBody("");
+      setSubmitState({ tone: "success", message: "Reply posted." });
+      router.refresh();
+    } catch {
+      setSubmitState({
+        tone: "error",
+        message: "Something went wrong while posting your reply.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ marginTop: 12 }}>
+      <p style={{ fontSize: 11.5, color: "#484644", marginBottom: 8 }}>
+        Reply as <span style={{ color: "#6a6764", fontWeight: 600 }}>you</span>
+      </p>
+
+      <textarea
+        value={body}
+        onChange={(e) => {
+          setBody(e.target.value);
+          if (submitState) setSubmitState(null);
+        }}
+        placeholder="Write a reply..."
+        style={{
+          width: "100%",
+          background: "#111010",
+          border: "1px solid #252424",
+          borderRadius: 8,
+          padding: "10px 12px",
+          color: "#b8b4ac",
+          fontFamily: "var(--font-outfit), sans-serif",
+          fontSize: 12.5,
+          lineHeight: 1.6,
+          resize: "vertical",
+          minHeight: 72,
+          outline: "none",
+          transition: "border-color .2s",
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.borderColor = "rgba(255,72,38,.35)";
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.borderColor = "#252424";
+        }}
+      />
+
+      {submitState ? (
+        <p
+          aria-live="polite"
+          style={{
+            fontSize: 11.5,
+            marginTop: 8,
+            color: submitState.tone === "success" ? "#8aa37f" : "#ff8b72",
+          }}
+        >
+          {submitState.tone === "success" ? "✓ " : ""}
+          {submitState.message}
+        </p>
+      ) : null}
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 8,
+          marginTop: 8,
+        }}
+      >
+        <button
+          className="act"
+          type="button"
+          onClick={onCancel}
+          style={{ border: "1px solid #242323", borderRadius: 7 }}
+        >
+          Cancel
+        </button>
+
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            background: "#ff4826",
+            border: "none",
+            borderRadius: 8,
+            color: "#fff",
+            fontFamily: "var(--font-outfit), sans-serif",
+            fontSize: 12.5,
+            fontWeight: 600,
+            padding: "7px 16px",
+            cursor: loading ? "not-allowed" : "pointer",
+            transition: "opacity .15s",
+            letterSpacing: ".02em",
+            opacity: loading ? 0.7 : 1,
+          }}
+        >
+          {loading ? "Posting..." : "Reply"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export default function PostPageShell({
   post,
   communities,
@@ -656,18 +773,35 @@ export default function PostPageShell({
   communities: CommunityItem[];
   railPosts: RailPost[];
 }) {
-	const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [commentSort, setCommentSort] = useState<CommentSort>("best");
+  const [visibleCommentCount, setVisibleCommentCount] = useState(20);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [collapsedReplies, setCollapsedReplies] = useState<
+    Record<string, boolean>
+  >({});
+  const backHref = post.community.name
+    ? `/feed?community=${encodeURIComponent(post.community.name)}`
+    : "/feed";
+  const sortedComments = sortComments(post.comments, commentSort);
+  const visibleComments = sortedComments.slice(0, visibleCommentCount);
+  const hasMoreComments = sortedComments.length > visibleCommentCount;
+
   return (
     <div className="feed-shell">
-      <TopBar />
+      <FeedTopBar mode="post" />
 
       <div className="feed-container">
-        <Sidebar communities={communities} activeCommunity={post.community.name} />
+        <FeedSidebar
+          mode="post"
+          communities={communities}
+          activeCommunity={post.community.name}
+        />
 
         <main className="feed-main">
           <div style={{ animation: "rise .3s ease" }}>
             <Link
-              href="/feed"
+              href={backHref}
               style={{
                 background: "none",
                 border: "1px solid #242323",
@@ -702,11 +836,12 @@ export default function PostPageShell({
                   marginBottom: 14,
                 }}
               >
-                <Badge
+                <CommunityBadge
                   name={post.community.name}
                   displayName={post.community.displayName}
                   color={post.community.color}
                   icon={post.community.icon}
+                  href={`/feed?community=${encodeURIComponent(post.community.name)}`}
                 />
 
                 <span style={{ fontSize: 12, color: "#464442" }}>
@@ -740,7 +875,7 @@ export default function PostPageShell({
                   gap: 6,
                 }}
               >
-                <Votes n={post.score} />
+                <Votes postId={post.id} n={post.score} initialVote={post.userVote} />
                 <div
                   style={{
                     width: 1,
@@ -810,6 +945,11 @@ export default function PostPageShell({
               />
 
               <select
+                value={commentSort}
+                onChange={(e) => {
+                  setCommentSort(e.target.value as CommentSort);
+                  setVisibleCommentCount(20);
+                }}
                 style={{
                   background: "#181717",
                   border: "1px solid #252424",
@@ -823,20 +963,35 @@ export default function PostPageShell({
                   cursor: "pointer",
                 }}
               >
-                {["Best", "Top", "New", "Controversial"].map((o) => (
-                  <option key={o}>{o}</option>
+                {[
+                  { value: "best", label: "Best" },
+                  { value: "new", label: "New" },
+                  { value: "old", label: "Old" },
+                ].map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
                 ))}
               </select>
             </div>
 
             {post.comments.length > 0 ? (
               <div>
-                {post.comments.map((comment) => (
-                  <div
-                    key={comment.id}
-                    className="cmt-wrap"
-                    style={{ marginTop: 14 }}
-                  >
+                {visibleComments.map((comment) => {
+                  const hasReplies = comment.replies.length > 0;
+                  const repliesCollapsed = collapsedReplies[comment.id] ?? false;
+                  const showReplyThread =
+                    replyingTo === comment.id || (!repliesCollapsed && hasReplies);
+                  const replyToggleLabel = repliesCollapsed
+                    ? `show ${comment.replies.length} ${comment.replies.length === 1 ? "reply" : "replies"}`
+                    : "hide replies";
+
+                  return (
+                    <div
+                      key={comment.id}
+                      className="cmt-wrap"
+                      style={{ marginTop: 14 }}
+                    >
                     <div
                       style={{
                         display: "flex",
@@ -878,31 +1033,125 @@ export default function PostPageShell({
                         gap: 0,
                       }}
                     >
-                      <button className="vbtn up" style={{ fontSize: 12 }} type="button">
-                        ▲
-                      </button>
-                      <span
-                        style={{
-                          fontSize: 11.5,
-                          fontWeight: 700,
-                          color: "#545250",
-                          padding: "0 4px",
+                      <CommentVotes
+                        commentId={comment.id}
+                        n={comment.score}
+                        initialVote={comment.userVote}
+                      />
+                      <button
+                        className="act"
+                        style={{ fontSize: 11.5, marginLeft: 4 }}
+                        type="button"
+                        onClick={() => {
+                          setCollapsedReplies((current) =>
+                            current[comment.id]
+                              ? { ...current, [comment.id]: false }
+                              : current
+                          );
+                          setReplyingTo((current) =>
+                            current === comment.id ? null : comment.id
+                          );
                         }}
                       >
-                        0
-                      </span>
-                      <button className="vbtn dn" style={{ fontSize: 12 }} type="button">
-                        ▼
-                      </button>
-                      <button className="act" style={{ fontSize: 11.5, marginLeft: 4 }} type="button">
                         ↩ Reply
                       </button>
+                      {hasReplies ? (
+                        <button
+                          className="act"
+                          style={{ fontSize: 11.5 }}
+                          type="button"
+                          onClick={() =>
+                            setCollapsedReplies((current) => ({
+                              ...current,
+                              [comment.id]: !current[comment.id],
+                            }))
+                          }
+                        >
+                          {replyToggleLabel}
+                        </button>
+                      ) : null}
                       <button className="act" style={{ fontSize: 11.5 }} type="button">
                         Share
                       </button>
                     </div>
+
+                    {showReplyThread ? (
+                      <div
+                        style={{
+                          marginTop: 12,
+                          marginLeft: 16,
+                          paddingLeft: 16,
+                          borderLeft: "1px solid #1e1e1e",
+                        }}
+                      >
+                        {replyingTo === comment.id ? (
+                          <ReplyComposer
+                            postId={post.id}
+                            parentId={comment.id}
+                            onCancel={() => setReplyingTo(null)}
+                          />
+                        ) : null}
+
+                        {comment.replies.map((reply, index) => (
+                          <div
+                            key={reply.id}
+                            style={{
+                              marginTop:
+                                replyingTo === comment.id || index > 0 ? 12 : 0,
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 7,
+                                marginBottom: 6,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  color: "#b0aba4",
+                                }}
+                              >
+                                {reply.author.displayName || reply.author.username}
+                              </span>
+                              <span style={{ fontSize: 10.5, color: "#383635" }}>
+                                {timeAgo(reply.createdAt)}
+                              </span>
+                            </div>
+
+                            <p
+                              style={{
+                                fontSize: 12.5,
+                                lineHeight: 1.65,
+                                color: "#9c9892",
+                                whiteSpace: "pre-wrap",
+                              }}
+                            >
+                              {reply.body}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
-                ))}
+                  );
+                })}
+
+                {hasMoreComments ? (
+                  <button
+                    className="act"
+                    type="button"
+                    onClick={() =>
+                      setVisibleCommentCount((count) => count + 20)
+                    }
+                    style={{ marginTop: 16 }}
+                  >
+                    Show more comments
+                  </button>
+                ) : null}
               </div>
             ) : (
               <div

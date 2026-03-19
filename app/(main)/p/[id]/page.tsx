@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { getCurrentUser } from "../../../../auth";
 import { prisma } from "../../../../lib/prisma";
 import PostPageShell from "../../../../components/PostPageShell";
 
@@ -23,11 +24,16 @@ function timeAgo(date: Date) {
   return `${years}y ago`;
 }
 
+function formatUserVote(value: number | null | undefined): 1 | -1 | null {
+  return value === 1 ? 1 : value === -1 ? -1 : null;
+}
+
 export default async function PostPage({
   params,
 }: {
   params: { id: string };
 }) {
+  const user = await getCurrentUser();
   const [post, communities, railPosts] = await Promise.all([
     prisma.post.findUnique({
       where: { id: params.id },
@@ -59,6 +65,22 @@ export default async function PostPage({
               select: {
                 username: true,
                 displayName: true,
+              },
+            },
+            replies: {
+              where: {
+                isDeleted: false,
+              },
+              orderBy: {
+                createdAt: "asc",
+              },
+              include: {
+                author: {
+                  select: {
+                    username: true,
+                    displayName: true,
+                  },
+                },
               },
             },
           },
@@ -100,6 +122,36 @@ export default async function PostPage({
   ]);
 
   if (!post) return notFound();
+  const [postVote, commentVotes] = user
+    ? await Promise.all([
+        prisma.vote.findUnique({
+          where: {
+            userId_postId: {
+              userId: user.id,
+              postId: post.id,
+            },
+          },
+          select: {
+            value: true,
+          },
+        }),
+        post.comments.length > 0
+          ? prisma.vote.findMany({
+              where: {
+                userId: user.id,
+                commentId: { in: post.comments.map((comment) => comment.id) },
+              },
+              select: {
+                commentId: true,
+                value: true,
+              },
+            })
+          : Promise.resolve([]),
+      ])
+    : [null, []];
+  const commentVoteMap = new Map(
+    commentVotes.map((vote) => [vote.commentId as string, vote.value])
+  );
 
   const formattedPost = {
     id: post.id,
@@ -107,6 +159,7 @@ export default async function PostPage({
     body: post.body,
     createdAt: post.createdAt.toISOString(),
     score: post.score,
+    userVote: formatUserVote(postVote?.value),
     commentCount: post.commentCount,
     author: {
       username: post.author.username,
@@ -121,11 +174,22 @@ export default async function PostPage({
     comments: post.comments.map((comment) => ({
       id: comment.id,
       body: comment.body,
+      score: comment.score,
+      userVote: formatUserVote(commentVoteMap.get(comment.id)),
       createdAt: comment.createdAt.toISOString(),
       author: {
         username: comment.author.username,
         displayName: comment.author.displayName,
       },
+      replies: comment.replies.map((reply) => ({
+        id: reply.id,
+        body: reply.body,
+        createdAt: reply.createdAt.toISOString(),
+        author: {
+          username: reply.author.username,
+          displayName: reply.author.displayName,
+        },
+      })),
     })),
   };
 
