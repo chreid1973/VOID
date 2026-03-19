@@ -459,7 +459,7 @@ function RightRail({
         {posts.slice(0, 5).map((p, i) => (
           <Link
             key={p.id}
-            href={`/post/${p.id}`}
+            href={`/p/${p.id}`}
             style={{
               display: "flex",
               gap: 10,
@@ -656,6 +656,7 @@ export default function PostPageShell({
   communities: CommunityItem[];
   railPosts: RailPost[];
 }) {
+	const [copied, setCopied] = useState(false);
   return (
     <div className="feed-shell">
       <TopBar />
@@ -751,9 +752,23 @@ export default function PostPageShell({
                 <button className="act" type="button">
                   ◎ {(post.commentCount ?? 0).toLocaleString()} comments
                 </button>
-                <button className="act" type="button">
-                  ↗ Share
-                </button>
+<button
+  className="act"
+  type="button"
+  onClick={async () => {
+    const url = `${window.location.origin}/p/${post.id}`;
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      window.prompt("Copy this link:", url);
+    }
+  }}
+>
+  {copied ? "✓ Copied" : "↗ Share"}
+</button>
                 <button className="act" type="button">
                   ☆ Save
                 </button>

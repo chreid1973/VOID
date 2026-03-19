@@ -127,7 +127,7 @@ body {
 }
 
 .post-card {
-  cursor: pointer;
+  cursor: default;
   animation: rise 0.4s ease both;
   background: #151413;
   border: 1px solid rgba(255, 255, 255, 0.06);
