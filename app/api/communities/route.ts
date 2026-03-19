@@ -1,9 +1,10 @@
 // app/api/communities/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { requireUser } from "@/auth";
 
 // ── GET /api/communities ───────────────────────────────────────
 
@@ -36,6 +37,14 @@ export async function POST(req: NextRequest) {
   try {
     const user = await requireUser();
     const data = createSchema.parse(await req.json());
+    const createData: Prisma.CommunityCreateInput = {
+      name: data.name,
+      displayName: data.displayName,
+      ...(data.description !== undefined ? { description: data.description } : {}),
+      ...(data.icon !== undefined ? { icon: data.icon } : {}),
+      ...(data.color !== undefined ? { color: data.color } : {}),
+      ...(data.isNSFW !== undefined ? { isNSFW: data.isNSFW } : {}),
+    };
 
     // Check name taken
     const exists = await prisma.community.findUnique({ where: { name: data.name } });
@@ -44,7 +53,7 @@ export async function POST(req: NextRequest) {
     }
 
     const community = await prisma.$transaction(async (tx) => {
-      const c = await tx.community.create({ data });
+      const c = await tx.community.create({ data: createData });
       // Creator becomes admin
       await tx.communityMember.create({
         data: { userId: user.id, communityId: c.id, role: "ADMIN" },

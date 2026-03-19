@@ -4,8 +4,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { requireUser } from "@/lib/auth";
-import { getUploadUrl } from "@/lib/r2";
+import { requireUser } from "@/auth";
+import { getUploadUrl } from "@/r2";
 import { createId } from "@paralleldrive/cuid2";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
