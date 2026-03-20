@@ -517,7 +517,9 @@ function RightRail({
 
               <div style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center" }}>
                 <Badge cid={p.community} communities={communities} />
-                <span style={{ fontSize: 10.5, color: "#383635" }}>{fmt(p.votes)} pts</span>
+                <span style={{ fontSize: 10.5, color: "#383635" }}>
+                  score {fmt(p.votes)}
+                </span>
               </div>
             </div>
           </Link>

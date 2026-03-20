@@ -662,7 +662,7 @@ export default async function UserProfilePage({
                         {post.title}
                       </h3>
                       <p style={{ fontSize: 12, color: "#8b847c" }}>
-                        {post.score.toLocaleString()} points ·{" "}
+                        score {post.score.toLocaleString()} ·{" "}
                         {post.commentCount.toLocaleString()} comments
                       </p>
                     </Link>
@@ -840,7 +840,7 @@ export default async function UserProfilePage({
                       {savedPost.post.title}
                     </h3>
                     <p style={{ fontSize: 12, color: "#8b847c" }}>
-                      {savedPost.post.score.toLocaleString()} points ·{" "}
+                      score {savedPost.post.score.toLocaleString()} ·{" "}
                       {savedPost.post.commentCount.toLocaleString()} comments
                     </p>
                   </Link>

@@ -520,7 +520,7 @@ function RightRail({
                 />
 
                 <span style={{ fontSize: 10.5, color: "#383635" }}>
-                  {fmt(p.votes)} pts
+                  score {fmt(p.votes)}
                 </span>
               </div>
             </div>
