@@ -296,20 +296,30 @@ function PostCard({
                 ) : null}
 
                 {p.imageUrl ? (
-                  <img
-                    src={p.imageUrl}
-                    alt={p.title}
-                    loading="lazy"
+                  <a
+                    href={p.imageUrl}
+                    target="_blank"
+                    rel="noreferrer"
                     style={{
-                      width: "100%",
-                      maxHeight: 320,
-                      objectFit: "cover",
                       display: "block",
-                      borderRadius: 12,
-                      border: "1px solid #1f1f1f",
-                      background: "#111010",
                     }}
-                  />
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <img
+                      src={p.imageUrl}
+                      alt={p.title}
+                      loading="lazy"
+                      style={{
+                        width: "100%",
+                        maxHeight: 320,
+                        objectFit: "cover",
+                        display: "block",
+                        borderRadius: 12,
+                        border: "1px solid #1f1f1f",
+                        background: "#111010",
+                      }}
+                    />
+                  </a>
                 ) : null}
               </div>
             ) : null}

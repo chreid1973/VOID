@@ -1416,20 +1416,29 @@ export default function PostPageShell({
                   ) : null}
 
                   {post.imageUrl ? (
-                    <img
-                      src={post.imageUrl}
-                      alt={post.title}
+                    <a
+                      href={post.imageUrl}
+                      target="_blank"
+                      rel="noreferrer"
                       style={{
-                        width: "100%",
-                        maxHeight: 640,
-                        objectFit: "cover",
                         display: "block",
-                        borderRadius: 16,
-                        border: "1px solid #1f1f1f",
-                        background: "#111010",
                         marginBottom: 22,
                       }}
-                    />
+                    >
+                      <img
+                        src={post.imageUrl}
+                        alt={post.title}
+                        style={{
+                          width: "100%",
+                          maxHeight: 640,
+                          objectFit: "cover",
+                          display: "block",
+                          borderRadius: 16,
+                          border: "1px solid #1f1f1f",
+                          background: "#111010",
+                        }}
+                      />
+                    </a>
                   ) : null}
                 </>
               )}
