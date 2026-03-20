@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "../app/(main)/feed/feed.css";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
 
@@ -48,6 +48,7 @@ const fmt = (n: number) => {
 
 const voteDirection = (value: 1 | -1 | null | undefined) =>
   value === 1 ? "up" : value === -1 ? "dn" : null;
+const INITIAL_VISIBLE_POSTS = 20;
 
 const norm = (value: string | null | undefined) =>
   (value ?? "").trim().toLowerCase();
@@ -530,6 +531,7 @@ export default function FeedClient({
 }: FeedClientProps) {
   const [sel, setSel] = useState<string | null>(initialSelectedCommunity);
   const [q, setQ] = useState("");
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_POSTS);
 
   const posts = initialPosts;
 
@@ -549,6 +551,12 @@ export default function FeedClient({
 
     return byCom && byQ;
   });
+  const visibleFeed = feed.slice(0, visibleCount);
+  const hasMorePosts = feed.length > visibleCount;
+
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE_POSTS);
+  }, [sel, q]);
 
   return (
     <div className="feed-shell">
@@ -613,9 +621,22 @@ export default function FeedClient({
 
           {feed.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {feed.map((p, i) => (
+              {visibleFeed.map((p, i) => (
                 <PostCard key={p.id} p={p} idx={i} communities={communities} />
               ))}
+
+              {hasMorePosts ? (
+                <button
+                  className="act"
+                  type="button"
+                  onClick={() =>
+                    setVisibleCount((current) => current + INITIAL_VISIBLE_POSTS)
+                  }
+                  style={{ alignSelf: "flex-start", marginTop: 6 }}
+                >
+                  Show more posts
+                </button>
+              ) : null}
             </div>
           ) : (
             <div style={{ textAlign: "center", padding: "80px 0", color: "#343331" }}>
