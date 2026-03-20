@@ -27,6 +27,13 @@ type FeedPost = {
   isSaved: boolean;
 };
 
+type FeedRailPost = {
+  id: string;
+  title: string;
+  votes: number;
+  community: string;
+};
+
 type FeedCommunity = {
   id: string;
   name: string;
@@ -53,6 +60,7 @@ type FeedClientProps = {
   hasPreviousPage: boolean;
   isPersonalizedHome: boolean;
   followedAuthorCount: number;
+  railPosts: FeedRailPost[];
   currentUser: {
     username: string;
     displayName: string | null;
@@ -409,9 +417,11 @@ function PostCard({
 
 function RightRail({
   posts,
+  trendingPosts,
   communities,
 }: {
   posts: FeedPost[];
+  trendingPosts: FeedRailPost[];
   communities: FeedCommunity[];
 }) {
   const totalMembers = communities.reduce((sum, c) => sum + c.memberCount, 0);
@@ -481,10 +491,10 @@ function RightRail({
             letterSpacing: "-.01em",
           }}
         >
-          Trending Today
+          Trending In The Void
         </h3>
 
-        {posts.slice(0, 5).map((p, i) => (
+        {trendingPosts.map((p, i) => (
           <Link
             key={p.id}
             href={`/p/${p.id}`}
@@ -674,6 +684,7 @@ export default function FeedClient({
   hasPreviousPage,
   isPersonalizedHome,
   followedAuthorCount,
+  railPosts,
   currentUser,
 }: FeedClientProps) {
   const router = useRouter();
@@ -983,7 +994,11 @@ export default function FeedClient({
           )}
         </main>
 
-        <RightRail posts={initialPosts} communities={communities} />
+        <RightRail
+          posts={initialPosts}
+          trendingPosts={railPosts}
+          communities={communities}
+        />
       </div>
     </div>
   );

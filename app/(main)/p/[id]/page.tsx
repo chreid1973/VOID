@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getCurrentUser, isAdminUser } from "../../../../auth";
 import { prisma } from "../../../../lib/prisma";
+import { loadTrendingRailPosts } from "../../../../lib/trendingRail";
 import PostPageShell from "../../../../components/PostPageShell";
 import { resolveStoredImageUrl } from "../../../../r2";
 
@@ -133,23 +134,7 @@ export default async function PostPage({
       },
     }),
 
-    prisma.post.findMany({
-      where: {
-        isHidden: false,
-      },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      include: {
-        community: {
-          select: {
-            name: true,
-            displayName: true,
-            color: true,
-            icon: true,
-          },
-        },
-      },
-    }),
+    loadTrendingRailPosts(5, params.id),
   ]);
 
   if (!post) return notFound();
@@ -251,11 +236,11 @@ export default async function PostPage({
   const formattedRailPosts = railPosts.map((item) => ({
     id: item.id,
     title: item.title,
-    votes: item.score,
-    community: item.community.name,
-    communityDisplayName: item.community.displayName,
-    communityColor: item.community.color,
-    communityIcon: item.community.icon,
+    votes: item.votes,
+    community: item.community,
+    communityDisplayName: item.communityDisplayName,
+    communityColor: item.communityColor,
+    communityIcon: item.communityIcon,
     time: timeAgo(item.createdAt),
   }));
 

@@ -462,7 +462,7 @@ function RightRail({
             letterSpacing: "-.01em",
           }}
         >
-          Trending Today
+          Trending In The Void
         </h3>
 
         {posts.slice(0, 5).map((p, i) => (

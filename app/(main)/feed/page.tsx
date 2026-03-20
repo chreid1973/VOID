@@ -4,35 +4,13 @@ import { redirect } from "next/navigation";
 import FeedClient from "../../../components/FeedClient";
 import { getCurrentUser } from "../../../auth";
 import { prisma } from "../../../lib/prisma";
+import { compareRankedPosts, type FeedSort } from "../../../lib/postRanking";
 import { resolveStoredImageUrl } from "../../../r2";
+import { loadTrendingRailPosts } from "../../../lib/trendingRail";
 
 const PAGE_SIZE = 20;
 
 type FeedScope = "home" | "following" | "popular" | "all";
-type FeedSort = "hot" | "new" | "top" | "rising";
-type RankedPost = {
-  id: string;
-  score: number;
-  commentCount: number;
-  replyCount: number;
-  createdAt: Date;
-};
-
-const HOT_RANKING = {
-  voteWeight: 1,
-  commentWeight: 2,
-  replyWeight: 1,
-  ageOffsetHours: 2,
-  agePower: 1.3,
-} as const;
-
-const RISING_RANKING = {
-  voteWeight: 0.5,
-  commentWeight: 2,
-  replyWeight: 1,
-  ageOffsetHours: 2,
-  agePower: 1.2,
-} as const;
 
 function timeAgo(date: Date) {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -83,61 +61,6 @@ function parsePage(value: string | undefined) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
-function ageHours(createdAt: Date, nowMs: number) {
-  return Math.max((nowMs - createdAt.getTime()) / 3_600_000, 0);
-}
-
-function hotScore(post: RankedPost, nowMs: number) {
-  const netVotes = post.score;
-  const hours = ageHours(post.createdAt, nowMs);
-  const hotBase =
-    netVotes * HOT_RANKING.voteWeight +
-    post.commentCount * HOT_RANKING.commentWeight +
-    post.replyCount * HOT_RANKING.replyWeight;
-
-  return hotBase / Math.pow(hours + HOT_RANKING.ageOffsetHours, HOT_RANKING.agePower);
-}
-
-function risingScore(post: RankedPost, nowMs: number) {
-  const netVotes = post.score;
-  const hours = ageHours(post.createdAt, nowMs);
-  const risingBase =
-    netVotes * RISING_RANKING.voteWeight +
-    post.commentCount * RISING_RANKING.commentWeight +
-    post.replyCount * RISING_RANKING.replyWeight;
-
-  return risingBase / Math.pow(
-    hours + RISING_RANKING.ageOffsetHours,
-    RISING_RANKING.agePower
-  );
-}
-
-function compareRankedPosts(a: RankedPost, b: RankedPost, sort: FeedSort, nowMs: number) {
-  const createdAtDelta = b.createdAt.getTime() - a.createdAt.getTime();
-  const scoreDelta = b.score - a.score;
-  const commentDelta = b.commentCount - a.commentCount;
-  const replyDelta = b.replyCount - a.replyCount;
-
-  if (sort === "new") {
-    return createdAtDelta || scoreDelta || commentDelta || replyDelta || a.id.localeCompare(b.id);
-  }
-
-  if (sort === "top") {
-    return scoreDelta || createdAtDelta || commentDelta || replyDelta || a.id.localeCompare(b.id);
-  }
-
-  const rankDelta =
-    sort === "rising"
-      ? risingScore(b, nowMs) - risingScore(a, nowMs)
-      : hotScore(b, nowMs) - hotScore(a, nowMs);
-
-  if (Math.abs(rankDelta) > 0.000001) {
-    return rankDelta;
-  }
-
-  return scoreDelta || commentDelta || replyDelta || createdAtDelta || a.id.localeCompare(b.id);
-}
-
 export default async function FeedPage({
   searchParams,
 }: {
@@ -161,7 +84,7 @@ export default async function FeedPage({
   const currentPage = parsePage(firstParam(searchParams?.page));
   const initialQuery = firstParam(searchParams?.q)?.trim() || "";
 
-  const [memberships, follows, communities] = await Promise.all([
+  const [memberships, follows, communities, trendingRailPosts] = await Promise.all([
     user
       ? prisma.communityMember.findMany({
           where: { userId: user.id },
@@ -194,6 +117,7 @@ export default async function FeedPage({
         },
       },
     }),
+    loadTrendingRailPosts(5),
   ]);
 
   const joinedCommunityIds = memberships.map((membership) => membership.communityId);
@@ -446,6 +370,12 @@ export default async function FeedPage({
     userVote: formatUserVote(postVoteMap.get(post.id)),
     isSaved: savedPostIdSet.has(post.id),
   }));
+  const formattedRailPosts = trendingRailPosts.map((post) => ({
+    id: post.id,
+    title: post.title,
+    votes: post.votes,
+    community: post.community,
+  }));
 
   const formattedCommunities = communities.map((community) => ({
     id: community.id,
@@ -468,12 +398,13 @@ export default async function FeedPage({
       initialQuery={initialQuery}
       currentPage={currentPage}
       hasNextPage={hasNextPage}
-        hasPreviousPage={hasPreviousPage}
-        isPersonalizedHome={isPersonalizedHome}
-        followedAuthorCount={followedAuthorIds.length}
-        currentUser={
-          user
-            ? {
+      hasPreviousPage={hasPreviousPage}
+      isPersonalizedHome={isPersonalizedHome}
+      followedAuthorCount={followedAuthorIds.length}
+      railPosts={formattedRailPosts}
+      currentUser={
+        user
+          ? {
               username: user.username,
               displayName: user.displayName,
             }
