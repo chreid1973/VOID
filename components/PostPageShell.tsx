@@ -22,6 +22,7 @@ type CommunityItem = {
 
 type RailPost = {
   id: string;
+  publicId: string;
   title: string;
   votes: number;
   community: string;
@@ -51,6 +52,7 @@ type CommentSort = "best" | "new" | "old";
 
 type PostData = {
   id: string;
+  publicId: string;
   title: string;
   body: string | null;
   url: string | null;
@@ -73,6 +75,7 @@ type PostData = {
   };
   crosspostSource: {
     id: string;
+    publicId: string;
     authorName: string;
     authorUsername: string;
     community: string;
@@ -477,7 +480,7 @@ function RightRail({
         {posts.slice(0, 5).map((p, i) => (
           <Link
             key={p.id}
-            href={`/p/${p.id}`}
+            href={`/p/${p.publicId}`}
             style={{
               display: "flex",
               gap: 10,
@@ -848,6 +851,7 @@ function ReplyComposer({
 function CommentNode({
   comment,
   postId,
+  postPublicId,
   depth = 0,
   nowMs,
   initialNowMs,
@@ -862,6 +866,7 @@ function CommentNode({
 }: {
   comment: PostComment;
   postId: string;
+  postPublicId: string;
   depth?: number;
   nowMs: number;
   initialNowMs: number;
@@ -935,7 +940,7 @@ function CommentNode({
   }, [copied]);
 
   async function handleShare() {
-    const url = `${window.location.origin}/p/${postId}#${getCommentHashId(comment.id)}`;
+    const url = `${window.location.origin}/p/${postPublicId}#${getCommentHashId(comment.id)}`;
 
     try {
       await navigator.clipboard.writeText(url);
@@ -1280,6 +1285,7 @@ function CommentNode({
               <CommentNode
                 comment={reply}
                 postId={postId}
+                postPublicId={postPublicId}
                 depth={depth + 1}
                 nowMs={nowMs}
                 initialNowMs={initialNowMs}
@@ -1628,7 +1634,7 @@ export default function PostPageShell({
 
               {post.crosspostSource ? (
                 <Link
-                  href={`/p/${post.crosspostSource.id}`}
+                  href={`/p/${post.crosspostSource.publicId}`}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
@@ -1807,7 +1813,7 @@ export default function PostPageShell({
   className="act"
   type="button"
   onClick={async () => {
-    const url = `${window.location.origin}/p/${post.id}`;
+    const url = `${window.location.origin}/p/${post.publicId}`;
 
     try {
       await navigator.clipboard.writeText(url);
@@ -1938,6 +1944,7 @@ export default function PostPageShell({
                     <CommentNode
                       comment={comment}
                       postId={post.id}
+                      postPublicId={post.publicId}
                       nowMs={nowMs}
                       initialNowMs={initialNowMs}
                       replyingTo={replyingTo}

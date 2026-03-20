@@ -313,6 +313,7 @@ export default async function FeedPage({
             crosspostOf: {
               select: {
                 id: true,
+                publicId: true,
                 author: {
                   select: {
                     username: true,
@@ -374,6 +375,7 @@ export default async function FeedPage({
 
   const formattedPosts = visiblePosts.map((post) => ({
     id: post.id,
+    publicId: post.publicId,
     community: post.community.name,
     title: post.title,
     body: post.body ?? "",
@@ -391,6 +393,7 @@ export default async function FeedPage({
     crosspostSource: post.crosspostOf
       ? {
           id: post.crosspostOf.id,
+          publicId: post.crosspostOf.publicId,
           authorName:
             post.crosspostOf.author.displayName || post.crosspostOf.author.username,
           authorUsername: post.crosspostOf.author.username,
@@ -403,6 +406,7 @@ export default async function FeedPage({
   }));
   const formattedRailPosts = trendingRailPosts.map((post) => ({
     id: post.id,
+    publicId: post.publicId,
     title: post.title,
     votes: post.votes,
     community: post.community,

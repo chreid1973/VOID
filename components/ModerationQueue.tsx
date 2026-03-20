@@ -50,6 +50,7 @@ type ModerationReport = {
   } | null;
   post: {
     id: string;
+    publicId: string;
     title: string;
     isHidden: boolean;
     author: {
@@ -68,6 +69,7 @@ type ModerationReport = {
     };
     post: {
       id: string;
+      publicId: string;
       title: string;
       isHidden: boolean;
     };
@@ -84,11 +86,11 @@ function formatDate(dateString: string) {
 
 function targetHref(report: ModerationReport) {
   if (report.targetType === "POST" && report.post) {
-    return `/p/${report.post.id}`;
+    return `/p/${report.post.publicId}`;
   }
 
   if (report.targetType === "COMMENT" && report.comment) {
-    return `/p/${report.comment.post.id}#comment-${report.comment.id}`;
+    return `/p/${report.comment.post.publicId}#comment-${report.comment.id}`;
   }
 
   return null;

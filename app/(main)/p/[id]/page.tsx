@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { getCurrentUser, isAdminUser } from "../../../../auth";
 import { prisma } from "../../../../lib/prisma";
 import { loadTrendingRailPosts } from "../../../../lib/trendingRail";
@@ -80,48 +80,57 @@ export default async function PostPage({
   const renderedAt = new Date().toISOString();
   const user = await getCurrentUser();
   const isAdmin = isAdminUser(user);
-  const [post, comments, communities, railPosts] = await Promise.all([
-    prisma.post.findUnique({
-      where: { id: params.id },
-      include: {
-        author: {
-          select: {
-            username: true,
-            displayName: true,
-          },
+  const post = await prisma.post.findFirst({
+    where: {
+      OR: [{ publicId: params.id }, { id: params.id }],
+    },
+    include: {
+      author: {
+        select: {
+          username: true,
+          displayName: true,
         },
-        community: {
-          select: {
-            name: true,
-            displayName: true,
-            color: true,
-            icon: true,
-          },
+      },
+      community: {
+        select: {
+          name: true,
+          displayName: true,
+          color: true,
+          icon: true,
         },
-        crosspostOf: {
-          select: {
-            id: true,
-            author: {
-              select: {
-                username: true,
-                displayName: true,
-              },
+      },
+      crosspostOf: {
+        select: {
+          id: true,
+          publicId: true,
+          author: {
+            select: {
+              username: true,
+              displayName: true,
             },
-            community: {
-              select: {
-                name: true,
-                displayName: true,
-                color: true,
-                icon: true,
-              },
+          },
+          community: {
+            select: {
+              name: true,
+              displayName: true,
+              color: true,
+              icon: true,
             },
           },
         },
       },
-    }),
+    },
+  });
+
+  if (!post) return notFound();
+  if (post.isHidden && !isAdmin) return notFound();
+  if (params.id !== post.publicId) {
+    permanentRedirect(`/p/${post.publicId}`);
+  }
+  const [comments, communities, railPosts] = await Promise.all([
     prisma.comment.findMany({
       where: {
-        postId: params.id,
+        postId: post.id,
       },
       orderBy: {
         createdAt: "asc",
@@ -153,11 +162,8 @@ export default async function PostPage({
       },
     }),
 
-    loadTrendingRailPosts(5, params.id),
+    loadTrendingRailPosts(5, post.id),
   ]);
-
-  if (!post) return notFound();
-  if (post.isHidden && !isAdmin) return notFound();
   const [postVote, commentVotes, savedPost] = user
     ? await Promise.all([
         prisma.vote.findUnique({
@@ -202,6 +208,7 @@ export default async function PostPage({
 
   const formattedPost = {
     id: post.id,
+    publicId: post.publicId,
     title: post.title,
     body: post.body,
     url: post.url,
@@ -225,6 +232,7 @@ export default async function PostPage({
     crosspostSource: post.crosspostOf
       ? {
           id: post.crosspostOf.id,
+          publicId: post.crosspostOf.publicId,
           authorName:
             post.crosspostOf.author.displayName || post.crosspostOf.author.username,
           authorUsername: post.crosspostOf.author.username,
@@ -266,6 +274,7 @@ export default async function PostPage({
 
   const formattedRailPosts = railPosts.map((item) => ({
     id: item.id,
+    publicId: item.publicId,
     title: item.title,
     votes: item.votes,
     community: item.community,

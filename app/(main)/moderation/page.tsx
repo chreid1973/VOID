@@ -45,6 +45,7 @@ export default async function ModerationPage({
       post: {
         select: {
           id: true,
+          publicId: true,
           title: true,
           isHidden: true,
           author: {
@@ -72,6 +73,7 @@ export default async function ModerationPage({
           post: {
             select: {
               id: true,
+              publicId: true,
               title: true,
               isHidden: true,
             },

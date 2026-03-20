@@ -1,7 +1,7 @@
 // seed.ts
 // Run: npm run db:seed
 
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -109,6 +109,7 @@ const userSeeds = [
 const postSeeds = [
   {
     id: "seed-post-gaming-coop",
+    publicId: "gcoop0001",
     communityName: "gaming",
     authorClerkId: "seed_clerk_ava",
     title: "What co-op game are you still playing weekly?",
@@ -116,6 +117,7 @@ const postSeeds = [
   },
   {
     id: "seed-post-gaming-campaigns",
+    publicId: "gcamp0002",
     communityName: "gaming",
     authorClerkId: "seed_clerk_miles",
     title: "Do shorter single-player campaigns make you more likely to finish a game?",
@@ -123,6 +125,7 @@ const postSeeds = [
   },
   {
     id: "seed-post-movies-pilot",
+    publicId: "pilot0003",
     communityName: "movies-tv",
     authorClerkId: "seed_clerk_noor",
     title: "Which recent series had the strongest first episode?",
@@ -130,6 +133,7 @@ const postSeeds = [
   },
   {
     id: "seed-post-movies-rewatch",
+    publicId: "rewat0004",
     communityName: "movies-tv",
     authorClerkId: "seed_clerk_ava",
     title: "What movie held up better on a rewatch than you expected?",
@@ -137,6 +141,7 @@ const postSeeds = [
   },
   {
     id: "seed-post-music-opener",
+    publicId: "music0005",
     communityName: "music",
     authorClerkId: "seed_clerk_miles",
     title: "What album opener grabs you immediately every time?",
@@ -144,6 +149,7 @@ const postSeeds = [
   },
   {
     id: "seed-post-music-length",
+    publicId: "music0006",
     communityName: "music",
     authorClerkId: "seed_clerk_noor",
     title: "Are shorter albums making you more likely to replay them?",
@@ -151,6 +157,7 @@ const postSeeds = [
   },
   {
     id: "seed-post-sports-casual",
+    publicId: "sport0007",
     communityName: "sports",
     authorClerkId: "seed_clerk_ava",
     title: "What sport is easiest to follow casually right now?",
@@ -158,6 +165,7 @@ const postSeeds = [
   },
   {
     id: "seed-post-sports-stats",
+    publicId: "sport0008",
     communityName: "sports",
     authorClerkId: "seed_clerk_miles",
     title: "How much do advanced stats change the way you watch a game?",
@@ -165,6 +173,7 @@ const postSeeds = [
   },
   {
     id: "seed-post-news-burnout",
+    publicId: "news00009",
     communityName: "news",
     authorClerkId: "seed_clerk_noor",
     title: "How do you keep up with breaking news without burning out?",
@@ -172,6 +181,7 @@ const postSeeds = [
   },
   {
     id: "seed-post-news-trust",
+    publicId: "news00010",
     communityName: "news",
     authorClerkId: "seed_clerk_ava",
     title: "What makes a source feel trustworthy to you?",
@@ -179,6 +189,7 @@ const postSeeds = [
   },
   {
     id: "seed-post-memes-format",
+    publicId: "memes0011",
     communityName: "memes",
     authorClerkId: "seed_clerk_miles",
     title: "What internet joke format still makes you laugh every time?",
@@ -186,6 +197,7 @@ const postSeeds = [
   },
   {
     id: "seed-post-memes-groupchat",
+    publicId: "memes0012",
     communityName: "memes",
     authorClerkId: "seed_clerk_noor",
     title: "What is the most harmlessly chaotic thing your group chat has turned into?",
@@ -193,6 +205,7 @@ const postSeeds = [
   },
   {
     id: "seed-post-ai-utility",
+    publicId: "aiutil0013",
     communityName: "ai",
     authorClerkId: "seed_clerk_ava",
     title: "What AI tool has been genuinely useful in your daily workflow?",
@@ -200,6 +213,7 @@ const postSeeds = [
   },
   {
     id: "seed-post-ai-overhyped",
+    publicId: "aihype0014",
     communityName: "ai",
     authorClerkId: "seed_clerk_miles",
     title: "What AI use case still feels overhyped to you?",
@@ -303,6 +317,7 @@ async function main() {
       return prisma.post.upsert({
         where: { id: post.id },
         update: {
+          publicId: post.publicId,
           title: post.title,
           body: post.body,
           communityId: community.id,
@@ -312,13 +327,14 @@ async function main() {
         },
         create: {
           id: post.id,
+          publicId: post.publicId,
           title: post.title,
           body: post.body,
           communityId: community.id,
           authorId: user.id,
           score: 1,
           type: "TEXT",
-        },
+        } satisfies Prisma.PostUncheckedCreateInput,
       });
     })
   );

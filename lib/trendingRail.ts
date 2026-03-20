@@ -3,6 +3,7 @@ import { compareRankedPosts } from "./postRanking";
 
 export type TrendingRailPost = {
   id: string;
+  publicId: string;
   title: string;
   votes: number;
   community: string;
@@ -22,6 +23,7 @@ export async function loadTrendingRailPosts(limit = 5, excludePostId?: string) {
     where: baseWhere,
     select: {
       id: true,
+      publicId: true,
       score: true,
       createdAt: true,
     },
@@ -108,6 +110,7 @@ export async function loadTrendingRailPosts(limit = 5, excludePostId?: string) {
     .filter((post): post is (typeof visiblePostsRaw)[number] => Boolean(post))
     .map((post) => ({
       id: post.id,
+      publicId: post.publicId,
       title: post.title,
       votes: post.score,
       community: post.community.name,

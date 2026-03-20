@@ -11,6 +11,7 @@ import SavePostButton from "./SavePostButton";
 
 type FeedPost = {
   id: string;
+  publicId: string;
   community: string;
   title: string;
   body: string;
@@ -27,6 +28,7 @@ type FeedPost = {
   isSaved: boolean;
   crosspostSource: {
     id: string;
+    publicId: string;
     authorName: string;
     authorUsername: string;
     community: string;
@@ -38,6 +40,7 @@ type FeedPost = {
 
 type FeedRailPost = {
   id: string;
+  publicId: string;
   title: string;
   votes: number;
   community: string;
@@ -305,7 +308,7 @@ function PostCard({
 
           {p.crosspostSource ? (
             <Link
-              href={`/p/${p.crosspostSource.id}`}
+              href={`/p/${p.crosspostSource.publicId}`}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -327,7 +330,7 @@ function PostCard({
           ) : null}
 
           <Link
-            href={`/p/${p.id}`}
+            href={`/p/${p.publicId}`}
             aria-label={`Open post: ${p.title}`}
             style={{ display: "block", textDecoration: "none", color: "inherit" }}
           >
@@ -403,7 +406,7 @@ function PostCard({
 
           <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
             <Link
-              href={`/p/${p.id}`}
+              href={`/p/${p.publicId}`}
               className="act"
               style={{ textDecoration: "none" }}
               onClick={(e) => e.stopPropagation()}
@@ -414,7 +417,7 @@ function PostCard({
               className="act"
               onClick={async (e) => {
                 e.stopPropagation();
-                const url = `${window.location.origin}/p/${p.id}`;
+                const url = `${window.location.origin}/p/${p.publicId}`;
 
                 try {
                   await navigator.clipboard.writeText(url);
@@ -528,7 +531,7 @@ function RightRail({
         {trendingPosts.map((p, i) => (
           <Link
             key={p.id}
-            href={`/p/${p.id}`}
+            href={`/p/${p.publicId}`}
             style={{
               display: "flex",
               gap: 10,

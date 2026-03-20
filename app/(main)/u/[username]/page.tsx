@@ -166,6 +166,7 @@ export default async function UserProfilePage({
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
+        publicId: true,
         title: true,
         score: true,
         commentCount: true,
@@ -193,6 +194,7 @@ export default async function UserProfilePage({
         post: {
           select: {
             id: true,
+            publicId: true,
             title: true,
           },
         },
@@ -215,6 +217,7 @@ export default async function UserProfilePage({
             post: {
               select: {
                 id: true,
+                publicId: true,
                 title: true,
                 score: true,
                 commentCount: true,
@@ -661,7 +664,7 @@ export default async function UserProfilePage({
                   {posts.map((post) => (
                     <Link
                       key={post.id}
-                      href={`/p/${post.id}`}
+                      href={`/p/${post.publicId}`}
                       style={{
                         display: "block",
                         textDecoration: "none",
@@ -753,7 +756,7 @@ export default async function UserProfilePage({
                   {comments.map((comment) => (
                     <Link
                       key={comment.id}
-                      href={`/p/${comment.post.id}`}
+                      href={`/p/${comment.post.publicId}`}
                       style={{
                         display: "block",
                         textDecoration: "none",
@@ -838,7 +841,7 @@ export default async function UserProfilePage({
                 {savedPosts.map((savedPost) => (
                   <Link
                     key={savedPost.id}
-                    href={`/p/${savedPost.post.id}`}
+                    href={`/p/${savedPost.post.publicId}`}
                     style={{
                       display: "block",
                       textDecoration: "none",

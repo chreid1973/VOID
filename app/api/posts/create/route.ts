@@ -1,6 +1,6 @@
 import { prisma } from "../../../../lib/prisma";
 import { auth } from "@clerk/nextjs/server";
-import { PostType } from "@prisma/client";
+import { Prisma, PostType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import {
   fetchLinkMetadata,
@@ -8,6 +8,7 @@ import {
   normalizeExternalUrl,
 } from "../../../../lib/linkPreview";
 import { extractStoredR2Key } from "../../../../r2";
+import { createPostPublicId } from "../../../../lib/postPublicId";
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -229,31 +230,61 @@ export async function POST(req: Request) {
     );
   }
 
-  const post = await prisma.$transaction(async (tx) => {
-    const createdPost = await tx.post.create({
-      data: {
-        title: finalTitle,
-        body: finalBody,
-        url: finalUrl,
-        imageKey: storedImageKey,
-        type: finalType,
-        communityId: trimmedCommunityId,
-        authorId: user.id,
-        score: 1,
-        crosspostOfPostId: crosspostSource?.id ?? null,
-      },
-    });
+  let post: { id: string; publicId: string } | null = null;
 
-    await tx.vote.create({
-      data: {
-        userId: user.id,
-        postId: createdPost.id,
-        value: 1,
-      },
-    });
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      post = await prisma.$transaction(async (tx) => {
+        const createdPost = await tx.post.create({
+          data: {
+            publicId: createPostPublicId(),
+            title: finalTitle,
+            body: finalBody,
+            url: finalUrl,
+            imageKey: storedImageKey,
+            type: finalType,
+            communityId: trimmedCommunityId,
+            authorId: user.id,
+            score: 1,
+            crosspostOfPostId: crosspostSource?.id ?? null,
+          },
+          select: {
+            id: true,
+            publicId: true,
+          },
+        });
 
-    return createdPost;
-  });
+        await tx.vote.create({
+          data: {
+            userId: user.id,
+            postId: createdPost.id,
+            value: 1,
+          },
+        });
 
-  return NextResponse.json({ ok: true, postId: post.id });
+        return createdPost;
+      });
+
+      break;
+    } catch (error) {
+      const isPublicIdConflict =
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002" &&
+        Array.isArray(error.meta?.target) &&
+        error.meta.target.includes("publicId");
+
+      if (!isPublicIdConflict || attempt === 4) {
+        throw error;
+      }
+    }
+  }
+
+  if (!post) {
+    return NextResponse.json(
+      { error: "Failed to create post." },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ ok: true, postId: post.id, publicId: post.publicId });
 }
