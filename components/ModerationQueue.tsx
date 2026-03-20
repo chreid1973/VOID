@@ -5,12 +5,34 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ActionNotice, type ActionNoticeState } from "./ActionNotice";
 import {
+  formatModerationEntryType,
   formatReportReason,
   formatReportStatus,
+  type ManualUserModerationType,
   type ModerationActionValue,
 } from "../lib/moderation";
 
 type ModerationReport = {
+  targetUser: {
+    id: string;
+    username: string;
+    displayName: string | null;
+  } | null;
+  userHistory: {
+    warningCount: number;
+    noteCount: number;
+    contentActionCount: number;
+    entries: Array<{
+      id: string;
+      type: string;
+      note: string | null;
+      createdAt: string;
+      admin: {
+        username: string;
+        displayName: string | null;
+      };
+    }>;
+  };
   id: string;
   targetType: "POST" | "COMMENT";
   reason: string;
@@ -116,6 +138,12 @@ export default function ModerationQueue({
 }) {
   const router = useRouter();
   const [pendingReportId, setPendingReportId] = useState<string | null>(null);
+  const [entryComposer, setEntryComposer] = useState<{
+    reportId: string;
+    type: ManualUserModerationType;
+  } | null>(null);
+  const [entryNote, setEntryNote] = useState("");
+  const [pendingEntryKey, setPendingEntryKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<ActionNoticeState | null>(null);
 
   useEffect(() => {
@@ -169,6 +197,72 @@ export default function ModerationQueue({
       });
     } finally {
       setPendingReportId(null);
+    }
+  }
+
+  async function handleUserModerationEntry(report: ModerationReport) {
+    if (!entryComposer || !report.targetUser) return;
+
+    const note = entryNote.trim();
+
+    if (!note) {
+      setNotice({
+        tone: "error",
+        message: "A note is required.",
+      });
+      return;
+    }
+
+    const pendingKey = `${report.id}:${entryComposer.type}`;
+
+    if (pendingEntryKey) return;
+
+    setPendingEntryKey(pendingKey);
+
+    try {
+      const res = await fetch("/api/moderation-actions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: report.targetUser.id,
+          type: entryComposer.type,
+          note,
+          reportId: report.id,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setNotice({
+          tone: "error",
+          message:
+            data?.error?.formErrors?.[0] ||
+            data?.error?.fieldErrors?.note?.[0] ||
+            data?.error ||
+            "Failed to save moderation history.",
+        });
+        return;
+      }
+
+      setEntryComposer(null);
+      setEntryNote("");
+      setNotice({
+        tone: "success",
+        message:
+          entryComposer.type === "WARNING"
+            ? "Warning saved."
+            : "Moderator note saved.",
+      });
+      router.refresh();
+    } catch {
+      setNotice({
+        tone: "error",
+        message: "Failed to save moderation history.",
+      });
+    } finally {
+      setPendingEntryKey(null);
     }
   }
 
@@ -301,6 +395,14 @@ export default function ModerationQueue({
                       {userLabel(report.reporter)}
                     </span>
                   </p>
+                  {report.targetUser ? (
+                    <p style={{ fontSize: 12.5, color: "#bdb8b1" }}>
+                      Reported user:{" "}
+                      <span style={{ color: "#ede8e0" }}>
+                        {userLabel(report.targetUser)}
+                      </span>
+                    </p>
+                  ) : null}
                   {report.targetType === "POST" && report.post ? (
                     <p style={{ fontSize: 12.5, color: "#bdb8b1" }}>
                       Author:{" "}
@@ -352,6 +454,58 @@ export default function ModerationQueue({
                       Note: {report.note}
                     </p>
                   ) : null}
+                  {report.targetUser ? (
+                    <div
+                      style={{
+                        background: "#151414",
+                        border: "1px solid #242323",
+                        borderRadius: 10,
+                        padding: "10px 12px",
+                      }}
+                    >
+                      <p
+                        style={{
+                          fontSize: 11,
+                          color: "#8b847c",
+                          textTransform: "uppercase",
+                          letterSpacing: ".08em",
+                          marginBottom: 8,
+                        }}
+                      >
+                        User history
+                      </p>
+                      <p style={{ fontSize: 12.5, color: "#bdb8b1", marginBottom: 8 }}>
+                        {report.userHistory.warningCount} warnings ·{" "}
+                        {report.userHistory.noteCount} notes ·{" "}
+                        {report.userHistory.contentActionCount} content actions
+                      </p>
+                      {report.userHistory.entries.length > 0 ? (
+                        <div style={{ display: "grid", gap: 6 }}>
+                          {report.userHistory.entries.map((entry) => (
+                            <div
+                              key={entry.id}
+                              style={{
+                                fontSize: 12,
+                                color: "#8b847c",
+                                lineHeight: 1.55,
+                              }}
+                            >
+                              <span style={{ color: "#ede8e0", fontWeight: 600 }}>
+                                {formatModerationEntryType(entry.type)}
+                              </span>{" "}
+                              by {userLabel(entry.admin)} on{" "}
+                              {formatDate(entry.createdAt)}
+                              {entry.note ? ` · ${entry.note}` : ""}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: 12, color: "#6f6963" }}>
+                          No moderator history yet.
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
                   {report.resolvedAt && report.resolvedBy ? (
                     <p style={{ fontSize: 12, color: "#6f6963" }}>
                       {formatReportStatus(report.status)} by {userLabel(report.resolvedBy)} on{" "}
@@ -378,6 +532,40 @@ export default function ModerationQueue({
                     </Link>
                   ) : null}
 
+                  {report.targetUser ? (
+                    <>
+                      <button
+                        className="act"
+                        type="button"
+                        onClick={() => {
+                          setEntryComposer((current) =>
+                            current?.reportId === report.id &&
+                            current.type === "WARNING"
+                              ? null
+                              : { reportId: report.id, type: "WARNING" }
+                          );
+                          setEntryNote("");
+                        }}
+                      >
+                        Warn user
+                      </button>
+                      <button
+                        className="act"
+                        type="button"
+                        onClick={() => {
+                          setEntryComposer((current) =>
+                            current?.reportId === report.id && current.type === "NOTE"
+                              ? null
+                              : { reportId: report.id, type: "NOTE" }
+                          );
+                          setEntryNote("");
+                        }}
+                      >
+                        Add note
+                      </button>
+                    </>
+                  ) : null}
+
                   {actions.map((action) => (
                     <button
                       key={action.value}
@@ -395,6 +583,77 @@ export default function ModerationQueue({
                     </button>
                   ))}
                 </div>
+
+                {entryComposer?.reportId === report.id ? (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void handleUserModerationEntry(report);
+                    }}
+                    style={{
+                      marginTop: 12,
+                      display: "grid",
+                      gap: 8,
+                    }}
+                  >
+                    <textarea
+                      value={entryNote}
+                      onChange={(e) => setEntryNote(e.target.value)}
+                      placeholder={
+                        entryComposer.type === "WARNING"
+                          ? "Why are you warning this user?"
+                          : "Private moderator note"
+                      }
+                      maxLength={1000}
+                      style={{
+                        width: "100%",
+                        minHeight: 86,
+                        background: "#161515",
+                        border: "1px solid #242323",
+                        borderRadius: 10,
+                        color: "#e6e1da",
+                        fontSize: 12.5,
+                        lineHeight: 1.55,
+                        padding: "10px 12px",
+                        resize: "vertical",
+                        outline: "none",
+                      }}
+                    />
+
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        gap: 8,
+                      }}
+                    >
+                      <button
+                        className="act"
+                        type="button"
+                        onClick={() => {
+                          setEntryComposer(null);
+                          setEntryNote("");
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="act"
+                        type="submit"
+                        disabled={
+                          pendingEntryKey ===
+                          `${report.id}:${entryComposer.type}`
+                        }
+                      >
+                        {pendingEntryKey === `${report.id}:${entryComposer.type}`
+                          ? "Saving..."
+                          : entryComposer.type === "WARNING"
+                            ? "Save warning"
+                            : "Save note"}
+                      </button>
+                    </div>
+                  </form>
+                ) : null}
               </div>
             );
           })}

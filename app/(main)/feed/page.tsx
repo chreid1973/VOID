@@ -383,22 +383,34 @@ export default async function FeedPage({
       ): post is (typeof visiblePostsRaw)[number] => Boolean(post)
     );
 
-  const postVotes =
+  const [postVotes, savedPosts] =
     user && visiblePosts.length > 0
-      ? await prisma.vote.findMany({
-          where: {
-            userId: user.id,
-            postId: { in: visiblePosts.map((post) => post.id) },
-          },
-          select: {
-            postId: true,
-            value: true,
-          },
-        })
-      : [];
+      ? await Promise.all([
+          prisma.vote.findMany({
+            where: {
+              userId: user.id,
+              postId: { in: visiblePosts.map((post) => post.id) },
+            },
+            select: {
+              postId: true,
+              value: true,
+            },
+          }),
+          prisma.savedPost.findMany({
+            where: {
+              userId: user.id,
+              postId: { in: visiblePosts.map((post) => post.id) },
+            },
+            select: {
+              postId: true,
+            },
+          }),
+        ])
+      : [[], []];
   const postVoteMap = new Map(
     postVotes.map((vote) => [vote.postId as string, vote.value])
   );
+  const savedPostIdSet = new Set(savedPosts.map((savedPost) => savedPost.postId));
 
   const formattedPosts = visiblePosts.map((post) => ({
     id: post.id,
@@ -414,6 +426,7 @@ export default async function FeedPage({
     flair: post.flair,
     flairColor: post.flairColor,
     userVote: formatUserVote(postVoteMap.get(post.id)),
+    isSaved: savedPostIdSet.has(post.id),
   }));
 
   const formattedCommunities = communities.map((community) => ({

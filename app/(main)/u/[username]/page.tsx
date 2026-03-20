@@ -9,7 +9,7 @@ import { resolveStoredImageUrl } from "../../../../r2";
 
 const PAGE_SIZE = 10;
 
-type ProfileTab = "posts" | "comments";
+type ProfileTab = "posts" | "comments" | "saved";
 
 function timeAgo(date: Date) {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -38,7 +38,7 @@ function snippet(value: string, max = 140) {
 
 function parseTab(value?: string | string[]): ProfileTab {
   const tab = Array.isArray(value) ? value[0] : value;
-  return tab === "comments" ? "comments" : "posts";
+  return tab === "comments" || tab === "saved" ? tab : "posts";
 }
 
 function parsePage(value?: string | string[]) {
@@ -51,7 +51,8 @@ function buildProfileHref(
   username: string,
   tab: ProfileTab,
   postsPage: number,
-  commentsPage: number
+  commentsPage: number,
+  savedPage: number
 ) {
   const params = new URLSearchParams();
 
@@ -65,6 +66,10 @@ function buildProfileHref(
 
   if (commentsPage > 1) {
     params.set("commentsPage", String(commentsPage));
+  }
+
+  if (savedPage > 1) {
+    params.set("savedPage", String(savedPage));
   }
 
   const query = params.toString();
@@ -92,11 +97,13 @@ export default async function UserProfilePage({
     tab?: string | string[];
     postsPage?: string | string[];
     commentsPage?: string | string[];
+    savedPage?: string | string[];
   };
 }) {
-  const activeTab = parseTab(searchParams?.tab);
+  const requestedTab = parseTab(searchParams?.tab);
   const postsPage = parsePage(searchParams?.postsPage);
   const commentsPage = parsePage(searchParams?.commentsPage);
+  const savedPage = parsePage(searchParams?.savedPage);
 
   const [user, currentUser] = await Promise.all([
     prisma.user.findUnique({
@@ -122,6 +129,8 @@ export default async function UserProfilePage({
   if (!user) return notFound();
 
   const isOwner = currentUser?.id === user.id;
+  const activeTab =
+    isOwner || requestedTab !== "saved" ? requestedTab : "posts";
   const clerkAccount = isOwner ? await getClerkAccount() : null;
   const canSeeHiddenContent = isAdminUser(currentUser);
   const avatarUrl = user.avatarUrl
@@ -137,7 +146,14 @@ export default async function UserProfilePage({
   const accountProvider = formatProviderLabel(
     clerkAccount?.externalAccounts[0]?.provider
   );
-  const [posts, comments, visiblePostCount, visibleCommentCount] = await Promise.all([
+  const [
+    posts,
+    comments,
+    savedPosts,
+    visiblePostCount,
+    visibleCommentCount,
+    visibleSavedPostCount,
+  ] = await Promise.all([
     prisma.post.findMany({
       where: {
         authorId: user.id,
@@ -180,6 +196,36 @@ export default async function UserProfilePage({
         },
       },
     }),
+    isOwner
+      ? prisma.savedPost.findMany({
+          where: {
+            userId: user.id,
+            post: {
+              isHidden: false,
+            },
+          },
+          take: PAGE_SIZE,
+          skip: (savedPage - 1) * PAGE_SIZE,
+          orderBy: { savedAt: "desc" },
+          select: {
+            id: true,
+            savedAt: true,
+            post: {
+              select: {
+                id: true,
+                title: true,
+                score: true,
+                commentCount: true,
+                community: {
+                  select: {
+                    displayName: true,
+                  },
+                },
+              },
+            },
+          },
+        })
+      : Promise.resolve([]),
     prisma.post.count({
       where: {
         authorId: user.id,
@@ -193,11 +239,23 @@ export default async function UserProfilePage({
         ...(canSeeHiddenContent ? {} : { isHidden: false }),
       },
     }),
+    isOwner
+      ? prisma.savedPost.count({
+          where: {
+            userId: user.id,
+            post: {
+              isHidden: false,
+            },
+          },
+        })
+      : Promise.resolve(0),
   ]);
   const postsHasPreviousPage = postsPage > 1;
   const commentsHasPreviousPage = commentsPage > 1;
+  const savedHasPreviousPage = savedPage > 1;
   const postsHasNextPage = visiblePostCount > postsPage * PAGE_SIZE;
   const commentsHasNextPage = visibleCommentCount > commentsPage * PAGE_SIZE;
+  const savedHasNextPage = visibleSavedPostCount > savedPage * PAGE_SIZE;
 
   return (
     <div
@@ -335,6 +393,9 @@ export default async function UserProfilePage({
                 {[
                   { label: "Posts", value: visiblePostCount },
                   { label: "Comments", value: visibleCommentCount },
+                  ...(isOwner
+                    ? [{ label: "Saved", value: visibleSavedPostCount }]
+                    : []),
                 ].map((item) => (
                   <div
                     key={item.label}
@@ -495,7 +556,11 @@ export default async function UserProfilePage({
                 letterSpacing: "-.02em",
               }}
             >
-              {activeTab === "posts" ? "Authored Posts" : "Authored Comments"}
+              {activeTab === "posts"
+                ? "Authored Posts"
+                : activeTab === "comments"
+                  ? "Authored Comments"
+                  : "Saved Posts"}
             </h2>
 
             <div
@@ -516,6 +581,15 @@ export default async function UserProfilePage({
                   label: "Comments",
                   count: visibleCommentCount,
                 },
+                ...(isOwner
+                  ? [
+                      {
+                        key: "saved" as const,
+                        label: "Saved",
+                        count: visibleSavedPostCount,
+                      },
+                    ]
+                  : []),
               ].map((tab) => {
                 const active = activeTab === tab.key;
 
@@ -526,7 +600,8 @@ export default async function UserProfilePage({
                       user.username,
                       tab.key,
                       postsPage,
-                      commentsPage
+                      commentsPage,
+                      savedPage
                     )}
                     style={{
                       display: "inline-flex",
@@ -609,7 +684,8 @@ export default async function UserProfilePage({
                         user.username,
                         "posts",
                         postsPage - 1,
-                        commentsPage
+                        commentsPage,
+                        savedPage
                       )}
                       className="act"
                       style={{ textDecoration: "none" }}
@@ -630,7 +706,8 @@ export default async function UserProfilePage({
                         user.username,
                         "posts",
                         postsPage + 1,
-                        commentsPage
+                        commentsPage,
+                        savedPage
                       )}
                       className="act"
                       style={{ textDecoration: "none" }}
@@ -645,13 +722,99 @@ export default async function UserProfilePage({
             ) : (
               <p style={{ fontSize: 14, color: "#8b847c" }}>No posts yet.</p>
             )
-          ) : comments.length > 0 ? (
+          ) : activeTab === "comments" ? (
+            comments.length > 0 ? (
+              <>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {comments.map((comment) => (
+                    <Link
+                      key={comment.id}
+                      href={`/p/${comment.post.id}`}
+                      style={{
+                        display: "block",
+                        textDecoration: "none",
+                        background: "#111010",
+                        border: "1px solid #242323",
+                        borderRadius: 12,
+                        padding: "14px 16px",
+                      }}
+                    >
+                      <p style={{ fontSize: 11.5, color: "#6f6963", marginBottom: 6 }}>
+                        On {comment.post.title} · {timeAgo(comment.createdAt)}
+                      </p>
+                      <p
+                        style={{
+                          fontSize: 13.5,
+                          lineHeight: 1.65,
+                          color: "#c0bbb4",
+                        }}
+                      >
+                        {snippet(comment.body)}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    marginTop: 18,
+                  }}
+                >
+                  {commentsHasPreviousPage ? (
+                    <Link
+                      href={buildProfileHref(
+                        user.username,
+                        "comments",
+                        postsPage,
+                        commentsPage - 1,
+                        savedPage
+                      )}
+                      className="act"
+                      style={{ textDecoration: "none" }}
+                    >
+                      ← Back
+                    </Link>
+                  ) : (
+                    <span style={{ fontSize: 12, color: "#3f3c39" }}>← Back</span>
+                  )}
+
+                  <span style={{ fontSize: 12, color: "#6f6963" }}>
+                    Page {commentsPage}
+                  </span>
+
+                  {commentsHasNextPage ? (
+                    <Link
+                      href={buildProfileHref(
+                        user.username,
+                        "comments",
+                        postsPage,
+                        commentsPage + 1,
+                        savedPage
+                      )}
+                      className="act"
+                      style={{ textDecoration: "none" }}
+                    >
+                      Next →
+                    </Link>
+                  ) : (
+                    <span style={{ fontSize: 12, color: "#3f3c39" }}>Next →</span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p style={{ fontSize: 14, color: "#8b847c" }}>No comments yet.</p>
+            )
+          ) : savedPosts.length > 0 ? (
             <>
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {comments.map((comment) => (
+                {savedPosts.map((savedPost) => (
                   <Link
-                    key={comment.id}
-                    href={`/p/${comment.post.id}`}
+                    key={savedPost.id}
+                    href={`/p/${savedPost.post.id}`}
                     style={{
                       display: "block",
                       textDecoration: "none",
@@ -662,16 +825,23 @@ export default async function UserProfilePage({
                     }}
                   >
                     <p style={{ fontSize: 11.5, color: "#6f6963", marginBottom: 6 }}>
-                      On {comment.post.title} · {timeAgo(comment.createdAt)}
+                      Saved {timeAgo(savedPost.savedAt)} ·{" "}
+                      {savedPost.post.community.displayName}
                     </p>
-                    <p
+                    <h3
                       style={{
-                        fontSize: 13.5,
-                        lineHeight: 1.65,
-                        color: "#c0bbb4",
+                        fontSize: 15,
+                        fontWeight: 600,
+                        color: "#e6e1da",
+                        lineHeight: 1.45,
+                        marginBottom: 8,
                       }}
                     >
-                      {snippet(comment.body)}
+                      {savedPost.post.title}
+                    </h3>
+                    <p style={{ fontSize: 12, color: "#8b847c" }}>
+                      {savedPost.post.score.toLocaleString()} points ·{" "}
+                      {savedPost.post.commentCount.toLocaleString()} comments
                     </p>
                   </Link>
                 ))}
@@ -686,13 +856,14 @@ export default async function UserProfilePage({
                   marginTop: 18,
                 }}
               >
-                {commentsHasPreviousPage ? (
+                {savedHasPreviousPage ? (
                   <Link
                     href={buildProfileHref(
                       user.username,
-                      "comments",
+                      "saved",
                       postsPage,
-                      commentsPage - 1
+                      commentsPage,
+                      savedPage - 1
                     )}
                     className="act"
                     style={{ textDecoration: "none" }}
@@ -704,16 +875,17 @@ export default async function UserProfilePage({
                 )}
 
                 <span style={{ fontSize: 12, color: "#6f6963" }}>
-                  Page {commentsPage}
+                  Page {savedPage}
                 </span>
 
-                {commentsHasNextPage ? (
+                {savedHasNextPage ? (
                   <Link
                     href={buildProfileHref(
                       user.username,
-                      "comments",
+                      "saved",
                       postsPage,
-                      commentsPage + 1
+                      commentsPage,
+                      savedPage + 1
                     )}
                     className="act"
                     style={{ textDecoration: "none" }}
@@ -726,7 +898,7 @@ export default async function UserProfilePage({
               </div>
             </>
           ) : (
-            <p style={{ fontSize: 14, color: "#8b847c" }}>No comments yet.</p>
+            <p style={{ fontSize: 14, color: "#8b847c" }}>No saved posts yet.</p>
           )}
         </section>
       </div>

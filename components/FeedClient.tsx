@@ -7,6 +7,7 @@ import "../app/(main)/feed/feed.css";
 import { ActionNotice, type ActionNoticeState } from "./ActionNotice";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
 import ReportAction from "./ReportAction";
+import SavePostButton from "./SavePostButton";
 
 type FeedPost = {
   id: string;
@@ -22,6 +23,7 @@ type FeedPost = {
   time: string;
   flair?: string | null;
   flairColor?: string | null;
+  isSaved: boolean;
 };
 
 type FeedCommunity = {
@@ -385,7 +387,11 @@ function PostCard({
                 onNotice={onActionNotice}
               />
             ) : null}
-            <button className="act">☆ Save</button>
+            <SavePostButton
+              postId={p.id}
+              initialSaved={p.isSaved}
+              onNotice={onActionNotice}
+            />
             <button className="act">⋯</button>
           </div>
         </div>

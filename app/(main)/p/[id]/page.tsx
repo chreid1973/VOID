@@ -154,7 +154,7 @@ export default async function PostPage({
 
   if (!post) return notFound();
   if (post.isHidden && !isAdmin) return notFound();
-  const [postVote, commentVotes] = user
+  const [postVote, commentVotes, savedPost] = user
     ? await Promise.all([
         prisma.vote.findUnique({
           where: {
@@ -179,8 +179,19 @@ export default async function PostPage({
               },
             })
           : Promise.resolve([]),
+        prisma.savedPost.findUnique({
+          where: {
+            userId_postId: {
+              userId: user.id,
+              postId: post.id,
+            },
+          },
+          select: {
+            id: true,
+          },
+        }),
       ])
-    : [null, []];
+    : [null, [], null];
   const commentVoteMap = new Map(
     commentVotes.map((vote) => [vote.commentId as string, vote.value])
   );
@@ -194,6 +205,7 @@ export default async function PostPage({
     createdAt: post.createdAt.toISOString(),
     score: post.score,
     userVote: formatUserVote(postVote?.value),
+    isSaved: Boolean(savedPost),
     isOwner: user?.id === post.authorId,
     commentCount: post.commentCount,
     author: {

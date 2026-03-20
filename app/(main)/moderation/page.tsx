@@ -49,6 +49,7 @@ export default async function ModerationPage({
           isHidden: true,
           author: {
             select: {
+              id: true,
               username: true,
               displayName: true,
             },
@@ -63,6 +64,7 @@ export default async function ModerationPage({
           isHidden: true,
           author: {
             select: {
+              id: true,
               username: true,
               displayName: true,
             },
@@ -78,6 +80,89 @@ export default async function ModerationPage({
       },
     },
   });
+  const targetUserIds = Array.from(
+    new Set(
+      reports
+        .map((report) =>
+          report.targetType === "POST"
+            ? report.post?.author.id
+            : report.comment?.author.id
+        )
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+  const moderationActions = targetUserIds.length
+    ? await prisma.moderationAction.findMany({
+        where: {
+          userId: {
+            in: targetUserIds,
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        select: {
+          id: true,
+          userId: true,
+          type: true,
+          note: true,
+          createdAt: true,
+          admin: {
+            select: {
+              username: true,
+              displayName: true,
+            },
+          },
+        },
+      })
+    : [];
+  const moderationHistoryByUser = new Map<
+    string,
+    {
+      warningCount: number;
+      noteCount: number;
+      contentActionCount: number;
+      entries: Array<{
+        id: string;
+        type: string;
+        note: string | null;
+        createdAt: string;
+        admin: {
+          username: string;
+          displayName: string | null;
+        };
+      }>;
+    }
+  >();
+
+  for (const action of moderationActions) {
+    const current = moderationHistoryByUser.get(action.userId) ?? {
+      warningCount: 0,
+      noteCount: 0,
+      contentActionCount: 0,
+      entries: [],
+    };
+
+    if (action.type === "WARNING") {
+      current.warningCount += 1;
+    } else if (action.type === "NOTE") {
+      current.noteCount += 1;
+    } else {
+      current.contentActionCount += 1;
+    }
+
+    if (current.entries.length < 5) {
+      current.entries.push({
+        id: action.id,
+        type: action.type,
+        note: action.note,
+        createdAt: action.createdAt.toISOString(),
+        admin: action.admin,
+      });
+    }
+
+    moderationHistoryByUser.set(action.userId, current);
+  }
 
   return (
     <div
@@ -143,6 +228,21 @@ export default async function ModerationPage({
         >
           <ModerationQueue
             reports={reports.map((report) => ({
+              targetUser:
+                report.targetType === "POST"
+                  ? report.post?.author ?? null
+                  : report.comment?.author ?? null,
+              userHistory:
+                moderationHistoryByUser.get(
+                  report.targetType === "POST"
+                    ? report.post?.author.id ?? ""
+                    : report.comment?.author.id ?? ""
+                ) ?? {
+                  warningCount: 0,
+                  noteCount: 0,
+                  contentActionCount: 0,
+                  entries: [],
+                },
               id: report.id,
               targetType: report.targetType,
               reason: report.reason,

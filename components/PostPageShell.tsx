@@ -7,6 +7,7 @@ import "../app/(main)/feed/feed.css";
 import { ActionNotice, type ActionNoticeState } from "./ActionNotice";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
 import ReportAction from "./ReportAction";
+import SavePostButton from "./SavePostButton";
 
 type CommunityItem = {
   id: string;
@@ -57,6 +58,7 @@ type PostData = {
   createdAt: string;
   score: number;
   userVote: 1 | -1 | null;
+  isSaved: boolean;
   isOwner: boolean;
   commentCount: number;
   author: {
@@ -1796,9 +1798,11 @@ export default function PostPageShell({
                     Delete
                   </button>
                 ) : null}
-                <button className="act" type="button">
-                  ☆ Save
-                </button>
+                <SavePostButton
+                  postId={post.id}
+                  initialSaved={post.isSaved}
+                  onNotice={setActionNotice}
+                />
                 <button className="act" type="button">
                   ⋯ More
                 </button>

@@ -33,6 +33,8 @@ model User {
   memberships     CommunityMember[]
   reportsFiled    Report[] @relation("ReportsFiled")
   reportsResolved Report[] @relation("ReportsResolved")
+  moderationReceived ModerationAction[] @relation("ModerationActionsReceived")
+  moderationIssued   ModerationAction[] @relation("ModerationActionsIssued")
 
   @@index([clerkId])
   @@index([username])
@@ -188,11 +190,30 @@ model Report {
   resolvedBy User?    @relation("ReportsResolved", fields: [resolvedById], references: [id], onDelete: SetNull)
   post       Post?    @relation(fields: [postId], references: [id], onDelete: SetNull)
   comment    Comment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  moderationActions ModerationAction[]
 
   @@index([status, createdAt])
   @@index([reporterId, status])
   @@index([postId])
   @@index([commentId])
+}
+
+model ModerationAction {
+  id        String               @id @default(cuid())
+  type      ModerationActionType
+  note      String?
+  createdAt DateTime             @default(now())
+  userId    String
+  adminId   String
+  reportId  String?
+
+  user   User   @relation("ModerationActionsReceived", fields: [userId], references: [id], onDelete: Cascade)
+  admin  User   @relation("ModerationActionsIssued", fields: [adminId], references: [id], onDelete: Cascade)
+  report Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([adminId, createdAt])
+  @@index([reportId])
 }
 
 enum ReportTargetType {
@@ -212,4 +233,13 @@ enum ReportStatus {
   OPEN
   RESOLVED
   DISMISSED
+}
+
+enum ModerationActionType {
+  NOTE
+  WARNING
+  HIDE_POST
+  DELETE_POST
+  HIDE_COMMENT
+  DELETE_COMMENT
 }

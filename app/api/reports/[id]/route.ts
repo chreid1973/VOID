@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ReportStatus, ReportTargetType } from "@prisma/client";
+import { ModerationActionType, ReportStatus, ReportTargetType } from "@prisma/client";
 import { z } from "zod";
 import { requireAdminUser } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -30,12 +30,14 @@ export async function PATCH(req: Request, { params }: Params) {
           select: {
             id: true,
             imageKey: true,
+            authorId: true,
           },
         },
         comment: {
           select: {
             id: true,
             postId: true,
+            authorId: true,
             isDeleted: true,
             replies: {
               select: { id: true },
@@ -54,17 +56,24 @@ export async function PATCH(req: Request, { params }: Params) {
       data.action === "DISMISS" ? ReportStatus.DISMISSED : ReportStatus.RESOLVED;
 
     await prisma.$transaction(async (tx) => {
+      let moderationActionType: ModerationActionType | null = null;
+      let moderationUserId: string | null = null;
+
       if (data.action === "HIDE_POST" || data.action === "DELETE_POST") {
         if (report.targetType !== ReportTargetType.POST || !report.post) {
           throw new Error("INVALID_TARGET");
         }
 
         if (data.action === "HIDE_POST") {
+          moderationActionType = ModerationActionType.HIDE_POST;
+          moderationUserId = report.post.authorId;
           await tx.post.update({
             where: { id: report.post.id },
             data: { isHidden: true },
           });
         } else {
+          moderationActionType = ModerationActionType.DELETE_POST;
+          moderationUserId = report.post.authorId;
           await tx.post.delete({
             where: { id: report.post.id },
           });
@@ -77,6 +86,8 @@ export async function PATCH(req: Request, { params }: Params) {
         }
 
         if (data.action === "HIDE_COMMENT") {
+          moderationActionType = ModerationActionType.HIDE_COMMENT;
+          moderationUserId = report.comment.authorId;
           await tx.comment.update({
             where: { id: report.comment.id },
             data: { isHidden: true },
@@ -84,6 +95,8 @@ export async function PATCH(req: Request, { params }: Params) {
         } else if (report.comment.isDeleted) {
           throw new Error("COMMENT_ALREADY_DELETED");
         } else if (report.comment.replies.length > 0) {
+          moderationActionType = ModerationActionType.DELETE_COMMENT;
+          moderationUserId = report.comment.authorId;
           await tx.comment.update({
             where: { id: report.comment.id },
             data: {
@@ -92,6 +105,8 @@ export async function PATCH(req: Request, { params }: Params) {
             },
           });
         } else {
+          moderationActionType = ModerationActionType.DELETE_COMMENT;
+          moderationUserId = report.comment.authorId;
           await tx.comment.delete({
             where: { id: report.comment.id },
           });
@@ -114,6 +129,20 @@ export async function PATCH(req: Request, { params }: Params) {
           resolvedById: admin.id,
         },
       });
+
+      if (moderationActionType && moderationUserId) {
+        await tx.moderationAction.create({
+          data: {
+            userId: moderationUserId,
+            adminId: admin.id,
+            reportId: report.id,
+            type: moderationActionType,
+            note:
+              report.note?.trim() ||
+              `From report: ${report.reason.toLowerCase().replace(/_/g, " ")}`,
+          },
+        });
+      }
     });
 
     if (data.action === "DELETE_POST" && report.post?.imageKey) {
