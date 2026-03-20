@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getCurrentUser } from "../../../../auth";
+import ProfileEditor from "../../../../components/ProfileEditor";
 import { prisma } from "../../../../lib/prisma";
+import { resolveStoredImageUrl } from "../../../../r2";
 
 function timeAgo(date: Date) {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -32,54 +35,66 @@ export default async function UserProfilePage({
 }: {
   params: { username: string };
 }) {
-  const user = await prisma.user.findUnique({
-    where: { username: params.username },
-    select: {
-      username: true,
-      displayName: true,
-      createdAt: true,
-      posts: {
-        take: 10,
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          title: true,
-          score: true,
-          commentCount: true,
-          createdAt: true,
-          community: {
-            select: {
-              displayName: true,
+  const [user, currentUser] = await Promise.all([
+    prisma.user.findUnique({
+      where: { username: params.username },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        bio: true,
+        avatarUrl: true,
+        createdAt: true,
+        posts: {
+          take: 10,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            title: true,
+            score: true,
+            commentCount: true,
+            createdAt: true,
+            community: {
+              select: {
+                displayName: true,
+              },
             },
           },
         },
-      },
-      comments: {
-        take: 10,
-        where: { isDeleted: false },
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          body: true,
-          createdAt: true,
-          post: {
-            select: {
-              id: true,
-              title: true,
+        comments: {
+          take: 10,
+          where: { isDeleted: false },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            body: true,
+            createdAt: true,
+            post: {
+              select: {
+                id: true,
+                title: true,
+              },
             },
           },
         },
-      },
-      _count: {
-        select: {
-          posts: true,
-          comments: true,
+        _count: {
+          select: {
+            posts: true,
+            comments: true,
+          },
         },
       },
-    },
-  });
+    }),
+    getCurrentUser(),
+  ]);
 
   if (!user) return notFound();
+
+  const isOwner = currentUser?.id === user.id;
+  const avatarUrl = user.avatarUrl
+    ? resolveStoredImageUrl(user.avatarUrl)
+    : null;
+  const profileLabel = user.displayName || user.username;
 
   return (
     <div
@@ -118,82 +133,149 @@ export default async function UserProfilePage({
             boxShadow: "0 8px 40px rgba(0,0,0,.38)",
             marginBottom: 18,
           }}
-        >
-          <p
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: ".08em",
-              textTransform: "uppercase",
-              color: "#8b847c",
-              marginBottom: 10,
-            }}
           >
-            Profile
-          </p>
-
-          <h1
-            style={{
-              fontFamily: "var(--font-fraunces), Georgia, serif",
-              fontSize: 38,
-              fontWeight: 600,
-              color: "#ede8e0",
-              letterSpacing: "-.03em",
-              lineHeight: 1.05,
-              marginBottom: 6,
-            }}
-          >
-            {user.displayName || user.username}
-          </h1>
-
-          <p style={{ fontSize: 14, color: "#8b847c", lineHeight: 1.6 }}>
-            u/{user.username} · joined {timeAgo(user.createdAt)}
-          </p>
-
           <div
             style={{
               display: "flex",
-              gap: 12,
+              gap: 18,
+              alignItems: "flex-start",
               flexWrap: "wrap",
-              marginTop: 16,
             }}
           >
-            {[
-              { label: "Posts", value: user._count.posts },
-              { label: "Comments", value: user._count.comments },
-            ].map((item) => (
-              <div
-                key={item.label}
+            <div
+              style={{
+                width: 96,
+                height: 96,
+                borderRadius: 24,
+                overflow: "hidden",
+                background: "#111010",
+                border: "1px solid #242323",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#6f6963",
+                fontSize: 34,
+                fontWeight: 700,
+                flexShrink: 0,
+              }}
+            >
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={profileLabel}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
+              ) : (
+                <span>{profileLabel.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p
                 style={{
-                  background: "#111010",
-                  border: "1px solid #242323",
-                  borderRadius: 12,
-                  padding: "10px 14px",
-                  minWidth: 110,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: ".08em",
+                  textTransform: "uppercase",
+                  color: "#8b847c",
+                  marginBottom: 10,
                 }}
               >
-                <div
+                Profile
+              </p>
+
+              <h1
+                style={{
+                  fontFamily: "var(--font-fraunces), Georgia, serif",
+                  fontSize: 38,
+                  fontWeight: 600,
+                  color: "#ede8e0",
+                  letterSpacing: "-.03em",
+                  lineHeight: 1.05,
+                  marginBottom: 6,
+                }}
+              >
+                {profileLabel}
+              </h1>
+
+              <p style={{ fontSize: 14, color: "#8b847c", lineHeight: 1.6 }}>
+                u/{user.username} · joined {timeAgo(user.createdAt)}
+              </p>
+
+              {user.bio ? (
+                <p
                   style={{
-                    fontSize: 11,
-                    color: "#6f6963",
-                    textTransform: "uppercase",
-                    letterSpacing: ".08em",
+                    fontSize: 14,
+                    color: "#c0bbb4",
+                    lineHeight: 1.7,
+                    marginTop: 12,
+                    whiteSpace: "pre-wrap",
                   }}
                 >
-                  {item.label}
-                </div>
-                <div
-                  style={{
-                    fontSize: 18,
-                    fontWeight: 700,
-                    color: "#ede8e0",
-                    marginTop: 4,
-                  }}
-                >
-                  {item.value.toLocaleString()}
-                </div>
+                  {user.bio}
+                </p>
+              ) : null}
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  flexWrap: "wrap",
+                  marginTop: 16,
+                }}
+              >
+                {[
+                  { label: "Posts", value: user._count.posts },
+                  { label: "Comments", value: user._count.comments },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    style={{
+                      background: "#111010",
+                      border: "1px solid #242323",
+                      borderRadius: 12,
+                      padding: "10px 14px",
+                      minWidth: 110,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "#6f6963",
+                        textTransform: "uppercase",
+                        letterSpacing: ".08em",
+                      }}
+                    >
+                      {item.label}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 700,
+                        color: "#ede8e0",
+                        marginTop: 4,
+                      }}
+                    >
+                      {item.value.toLocaleString()}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+
+              {isOwner ? (
+                <ProfileEditor
+                  initialDisplayName={user.displayName}
+                  initialBio={user.bio}
+                  initialAvatarValue={user.avatarUrl}
+                  initialAvatarUrl={avatarUrl}
+                />
+              ) : null}
+            </div>
           </div>
         </div>
 
