@@ -310,6 +310,25 @@ export default async function FeedPage({
                 color: true,
               },
             },
+            crosspostOf: {
+              select: {
+                id: true,
+                author: {
+                  select: {
+                    username: true,
+                    displayName: true,
+                  },
+                },
+                community: {
+                  select: {
+                    name: true,
+                    displayName: true,
+                    color: true,
+                    icon: true,
+                  },
+                },
+              },
+            },
           },
         })
       : [];
@@ -369,6 +388,18 @@ export default async function FeedPage({
     flairColor: post.flairColor,
     userVote: formatUserVote(postVoteMap.get(post.id)),
     isSaved: savedPostIdSet.has(post.id),
+    crosspostSource: post.crosspostOf
+      ? {
+          id: post.crosspostOf.id,
+          authorName:
+            post.crosspostOf.author.displayName || post.crosspostOf.author.username,
+          authorUsername: post.crosspostOf.author.username,
+          community: post.crosspostOf.community.name,
+          communityDisplayName: post.crosspostOf.community.displayName,
+          communityColor: post.crosspostOf.community.color,
+          communityIcon: post.crosspostOf.community.icon,
+        }
+      : null,
   }));
   const formattedRailPosts = trendingRailPosts.map((post) => ({
     id: post.id,

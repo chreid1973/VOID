@@ -98,6 +98,7 @@ model Post {
 
   authorId    String
   communityId String
+  crosspostOfPostId String?
 
   author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
@@ -105,11 +106,14 @@ model Post {
   votes     Vote[]
   saves     SavedPost[]
   reports   Report[]
+  crosspostOf Post?   @relation("Crossposts", fields: [crosspostOfPostId], references: [id], onDelete: SetNull)
+  crossposts Post[]   @relation("Crossposts")
 
   @@index([communityId, createdAt(sort: Desc)])
   @@index([score(sort: Desc)])
   @@index([authorId])
   @@index([isHidden])
+  @@index([crosspostOfPostId])
 }
 
 enum PostType {

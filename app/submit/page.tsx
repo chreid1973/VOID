@@ -2,23 +2,64 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../../auth";
 import { prisma } from "../../lib/prisma";
+import { resolveStoredImageUrl } from "../../r2";
 import SubmitForm from "./submit-form";
 
-export default async function SubmitPage() {
+export default async function SubmitPage({
+  searchParams,
+}: {
+  searchParams?: {
+    crosspost?: string | string[];
+  };
+}) {
   const [{ userId }, user] = await Promise.all([auth(), getCurrentUser()]);
 
   if (userId && !user) {
     redirect("/onboarding");
   }
 
-  const communities = await prisma.community.findMany({
-    orderBy: { displayName: "asc" },
-    select: {
-      id: true,
-      name: true,
-      displayName: true,
-    },
-  });
+  const crosspostId = Array.isArray(searchParams?.crosspost)
+    ? searchParams?.crosspost[0]
+    : searchParams?.crosspost;
+
+  const [communities, crosspostSource] = await Promise.all([
+    prisma.community.findMany({
+      orderBy: { displayName: "asc" },
+      select: {
+        id: true,
+        name: true,
+        displayName: true,
+      },
+    }),
+    crosspostId && user
+      ? prisma.post.findUnique({
+          where: { id: crosspostId },
+          select: {
+            id: true,
+            title: true,
+            body: true,
+            url: true,
+            imageKey: true,
+            authorId: true,
+            communityId: true,
+            community: {
+              select: {
+                name: true,
+                displayName: true,
+                color: true,
+                icon: true,
+              },
+            },
+          },
+        })
+      : Promise.resolve(null),
+  ]);
+
+  if (crosspostId) {
+    if (!user || !crosspostSource || crosspostSource.authorId !== user.id) {
+      redirect("/feed");
+    }
+  }
 
   return (
     <div
@@ -46,7 +87,7 @@ export default async function SubmitPage() {
               marginBottom: 8,
             }}
           >
-            Create Post
+            {crosspostSource ? "Crosspost Post" : "Create Post"}
           </h1>
 
           <p
@@ -56,7 +97,9 @@ export default async function SubmitPage() {
               lineHeight: 1.6,
             }}
           >
-            Start a new thread in one of your communities.
+            {crosspostSource
+              ? "Share your post to another community. The original stays linked."
+              : "Start a new thread in one of your communities."}
           </p>
         </div>
 
@@ -69,7 +112,24 @@ export default async function SubmitPage() {
             boxShadow: "0 8px 40px rgba(0,0,0,.38)",
           }}
         >
-          <SubmitForm communities={communities} />
+          <SubmitForm
+            communities={communities}
+            crosspostSource={
+              crosspostSource
+                ? {
+                    id: crosspostSource.id,
+                    title: crosspostSource.title,
+                    body: crosspostSource.body,
+                    url: crosspostSource.url,
+                    imageUrl: crosspostSource.imageKey
+                      ? resolveStoredImageUrl(crosspostSource.imageKey)
+                      : null,
+                    communityId: crosspostSource.communityId,
+                    community: crosspostSource.community,
+                  }
+                : null
+            }
+          />
         </div>
       </div>
     </div>

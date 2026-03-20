@@ -25,6 +25,7 @@ export async function POST(req: Request) {
     url,
     includeLinkPreviewDescription,
     includeLinkPreviewImage,
+    crosspostOfPostId,
   } = json as {
     title?: string;
     body?: string;
@@ -33,6 +34,7 @@ export async function POST(req: Request) {
     url?: string;
     includeLinkPreviewDescription?: boolean;
     includeLinkPreviewImage?: boolean;
+    crosspostOfPostId?: string;
   };
 
   if (!communityId?.trim()) {
@@ -58,9 +60,20 @@ export async function POST(req: Request) {
   const trimmedCommunityId = communityId.trim();
   const trimmedImageKey = imageKey?.trim() || null;
   const trimmedUrl = url?.trim() || null;
+  const trimmedCrosspostOfPostId = crosspostOfPostId?.trim() || null;
   const shouldIncludeLinkPreviewDescription =
     includeLinkPreviewDescription === true;
   const shouldIncludeLinkPreviewImage = includeLinkPreviewImage === true;
+
+  if (
+    trimmedCrosspostOfPostId &&
+    (trimmedImageKey || trimmedUrl || trimmedTitle || trimmedBody)
+  ) {
+    return NextResponse.json(
+      { error: "Crossposts reuse the original post content." },
+      { status: 400 }
+    );
+  }
 
   if (trimmedImageKey && trimmedUrl) {
     return NextResponse.json(
@@ -87,6 +100,85 @@ export async function POST(req: Request) {
   let scrapedTitle: string | null = null;
   let scrapedDescription: string | null = null;
   let scrapedImageUrl: string | null = null;
+  let crosspostSource:
+    | {
+        id: string;
+        title: string;
+        body: string | null;
+        url: string | null;
+        imageKey: string | null;
+        type: PostType;
+        authorId: string;
+        communityId: string;
+        crosspostOfPostId: string | null;
+      }
+    | null = null;
+
+  if (trimmedCrosspostOfPostId) {
+    const sourcePost = await prisma.post.findUnique({
+      where: { id: trimmedCrosspostOfPostId },
+      select: {
+        id: true,
+        title: true,
+        body: true,
+        url: true,
+        imageKey: true,
+        type: true,
+        authorId: true,
+        communityId: true,
+        crosspostOfPostId: true,
+        isHidden: true,
+      },
+    });
+
+    if (!sourcePost || sourcePost.isHidden) {
+      return NextResponse.json(
+        { error: "Original post not found." },
+        { status: 404 }
+      );
+    }
+
+    if (sourcePost.authorId !== user.id) {
+      return NextResponse.json(
+        { error: "Only the original author can crosspost right now." },
+        { status: 403 }
+      );
+    }
+
+    const canonicalSourceId = sourcePost.crosspostOfPostId ?? sourcePost.id;
+
+    crosspostSource =
+      canonicalSourceId === sourcePost.id
+        ? sourcePost
+        : await prisma.post.findUnique({
+            where: { id: canonicalSourceId },
+            select: {
+              id: true,
+              title: true,
+              body: true,
+              url: true,
+              imageKey: true,
+              type: true,
+              authorId: true,
+              communityId: true,
+              crosspostOfPostId: true,
+            },
+          });
+
+    if (!crosspostSource) {
+      return NextResponse.json(
+        { error: "Original post not found." },
+        { status: 404 }
+      );
+    }
+
+    if (crosspostSource.communityId === trimmedCommunityId) {
+      return NextResponse.json(
+        { error: "Pick a different community for the crosspost." },
+        { status: 400 }
+      );
+    }
+  }
 
   if (trimmedUrl) {
     try {
@@ -107,17 +199,28 @@ export async function POST(req: Request) {
     }
   }
 
-  const finalTitle =
-    trimmedTitle ||
-    scrapedTitle ||
-    (normalizedUrl ? getLinkFallbackTitle(normalizedUrl) : "");
-  const finalBody =
-    trimmedBody && shouldIncludeLinkPreviewDescription && scrapedDescription
+  const finalTitle = crosspostSource
+    ? crosspostSource.title
+    : trimmedTitle ||
+      scrapedTitle ||
+      (normalizedUrl ? getLinkFallbackTitle(normalizedUrl) : "");
+  const finalBody = crosspostSource
+    ? crosspostSource.body
+    : trimmedBody && shouldIncludeLinkPreviewDescription && scrapedDescription
       ? `${trimmedBody}\n\n${scrapedDescription}`
       : trimmedBody ||
         (shouldIncludeLinkPreviewDescription ? scrapedDescription : null);
-  const storedImageKey =
-    trimmedImageKey || (shouldIncludeLinkPreviewImage ? scrapedImageUrl : null);
+  const storedImageKey = crosspostSource
+    ? crosspostSource.imageKey
+    : trimmedImageKey || (shouldIncludeLinkPreviewImage ? scrapedImageUrl : null);
+  const finalUrl = crosspostSource ? crosspostSource.url : normalizedUrl;
+  const finalType = crosspostSource
+    ? crosspostSource.type
+    : trimmedImageKey
+      ? PostType.IMAGE
+      : normalizedUrl
+        ? PostType.LINK
+        : PostType.TEXT;
 
   if (!finalTitle) {
     return NextResponse.json(
@@ -131,16 +234,13 @@ export async function POST(req: Request) {
       data: {
         title: finalTitle,
         body: finalBody,
-        url: normalizedUrl,
+        url: finalUrl,
         imageKey: storedImageKey,
-        type: trimmedImageKey
-          ? PostType.IMAGE
-          : normalizedUrl
-            ? PostType.LINK
-            : PostType.TEXT,
+        type: finalType,
         communityId: trimmedCommunityId,
         authorId: user.id,
         score: 1,
+        crosspostOfPostId: crosspostSource?.id ?? null,
       },
     });
 

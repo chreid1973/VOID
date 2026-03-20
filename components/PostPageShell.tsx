@@ -71,6 +71,15 @@ type PostData = {
     color: string;
     icon: string;
   };
+  crosspostSource: {
+    id: string;
+    authorName: string;
+    authorUsername: string;
+    community: string;
+    communityDisplayName: string;
+    communityColor: string;
+    communityIcon: string;
+  } | null;
   comments: PostComment[];
 };
 
@@ -1617,6 +1626,28 @@ export default function PostPageShell({
                 </span>
               </div>
 
+              {post.crosspostSource ? (
+                <Link
+                  href={`/p/${post.crosspostSource.id}`}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    marginBottom: 14,
+                    color: "#8a8682",
+                    fontSize: 12.5,
+                    lineHeight: 1.5,
+                    textDecoration: "none",
+                  }}
+                >
+                  <span>⇄</span>
+                  <span>
+                    Crossposted from {post.crosspostSource.communityDisplayName} by u/
+                    {post.crosspostSource.authorName}
+                  </span>
+                </Link>
+              ) : null}
+
               {editingPost ? (
                 <form
                   onSubmit={(e) => {
@@ -1809,6 +1840,15 @@ export default function PostPageShell({
                   </button>
                 ) : null}
                 {post.isOwner && !editingPost ? (
+                  <Link
+                    href={`/submit?crosspost=${encodeURIComponent(post.id)}`}
+                    className="act"
+                    style={{ textDecoration: "none" }}
+                  >
+                    Crosspost
+                  </Link>
+                ) : null}
+                {post.isOwner && !editingPost ? (
                   <button
                     className="act"
                     type="button"
@@ -1822,9 +1862,6 @@ export default function PostPageShell({
                   initialSaved={post.isSaved}
                   onNotice={setActionNotice}
                 />
-                <button className="act" type="button">
-                  ⋯ More
-                </button>
               </div>
             </div>
 

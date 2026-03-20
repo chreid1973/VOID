@@ -25,6 +25,15 @@ type FeedPost = {
   flair?: string | null;
   flairColor?: string | null;
   isSaved: boolean;
+  crosspostSource: {
+    id: string;
+    authorName: string;
+    authorUsername: string;
+    community: string;
+    communityDisplayName: string;
+    communityColor: string;
+    communityIcon: string;
+  } | null;
 };
 
 type FeedRailPost = {
@@ -294,6 +303,29 @@ function PostCard({
             </span>
           </div>
 
+          {p.crosspostSource ? (
+            <Link
+              href={`/p/${p.crosspostSource.id}`}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                marginBottom: 10,
+                color: "#8a8682",
+                fontSize: 12.5,
+                lineHeight: 1.5,
+                textDecoration: "none",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span>⇄</span>
+              <span>
+                Crossposted from {p.crosspostSource.communityDisplayName} by u/
+                {p.crosspostSource.authorName}
+              </span>
+            </Link>
+          ) : null}
+
           <Link
             href={`/p/${p.id}`}
             aria-label={`Open post: ${p.title}`}
@@ -407,7 +439,6 @@ function PostCard({
               initialSaved={p.isSaved}
               onNotice={onActionNotice}
             />
-            <button className="act">⋯</button>
           </div>
         </div>
       </div>

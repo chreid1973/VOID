@@ -98,6 +98,25 @@ export default async function PostPage({
             icon: true,
           },
         },
+        crosspostOf: {
+          select: {
+            id: true,
+            author: {
+              select: {
+                username: true,
+                displayName: true,
+              },
+            },
+            community: {
+              select: {
+                name: true,
+                displayName: true,
+                color: true,
+                icon: true,
+              },
+            },
+          },
+        },
       },
     }),
     prisma.comment.findMany({
@@ -203,6 +222,18 @@ export default async function PostPage({
       color: post.community.color,
       icon: post.community.icon,
     },
+    crosspostSource: post.crosspostOf
+      ? {
+          id: post.crosspostOf.id,
+          authorName:
+            post.crosspostOf.author.displayName || post.crosspostOf.author.username,
+          authorUsername: post.crosspostOf.author.username,
+          community: post.crosspostOf.community.name,
+          communityDisplayName: post.crosspostOf.community.displayName,
+          communityColor: post.crosspostOf.community.color,
+          communityIcon: post.crosspostOf.community.icon,
+        }
+      : null,
     comments: buildCommentTree(
       comments.map((comment) => ({
         id: comment.id,
