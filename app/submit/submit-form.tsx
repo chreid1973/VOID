@@ -81,7 +81,7 @@ export default function SubmitForm({
 
     const setupData = await setupRes.json().catch(() => null);
 
-    if (!setupRes.ok || !setupData?.uploadUrl || !setupData?.publicUrl) {
+    if (!setupRes.ok || !setupData?.uploadUrl || !setupData?.key) {
       throw new Error(
         setupRes.status === 401
           ? "Sign in to upload an image."
@@ -115,7 +115,7 @@ export default function SubmitForm({
       throw new Error("Image upload failed. Please try again.");
     }
 
-    return setupData.publicUrl as string;
+    return setupData.key as string;
   }
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -244,7 +244,7 @@ export default function SubmitForm({
     setSubmitError(null);
 
     try {
-      const uploadedImageUrl = imageFile ? await uploadImage(imageFile) : null;
+      const uploadedImageKey = imageFile ? await uploadImage(imageFile) : null;
       const res = await fetch("/api/posts/create", {
         method: "POST",
         headers: {
@@ -255,7 +255,7 @@ export default function SubmitForm({
           body,
           url,
           communityId,
-          imageKey: uploadedImageUrl,
+          imageKey: uploadedImageKey,
           includeLinkPreviewDescription,
           includeLinkPreviewImage,
         }),

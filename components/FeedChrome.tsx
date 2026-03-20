@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 
 type CommunityNavItem = {
   id: string;
@@ -11,7 +10,10 @@ type CommunityNavItem = {
   icon: string;
   memberCount: number;
   postCount: number;
+  isMember: boolean;
 };
+
+type FeedSort = "hot" | "new" | "top" | "rising";
 
 type CommunityBadgeProps = {
   name: string;
@@ -30,8 +32,10 @@ type FeedTopBarProps =
   | {
       mode: "feed";
       q: string;
-      setQ: React.Dispatch<React.SetStateAction<string>>;
-      setSel: React.Dispatch<React.SetStateAction<string | null>>;
+      sort: FeedSort;
+      onQueryChange: (value: string) => void;
+      onSortChange: (sort: FeedSort) => void;
+      onHomeClick: () => void;
       currentUser: TopBarCurrentUser | null;
     }
   | {
@@ -43,7 +47,7 @@ type FeedSidebarProps =
   | {
       mode: "feed";
       sel: string | null;
-      setSel: React.Dispatch<React.SetStateAction<string | null>>;
+      onSelect: (selection: string | null) => void;
       communities: CommunityNavItem[];
     }
   | {
@@ -92,13 +96,11 @@ export function CommunityBadge({
 }
 
 export function FeedTopBar(props: FeedTopBarProps) {
-  const [sort, setSort] = useState("Hot");
-
   return (
     <header className="feed-topbar">
       {props.mode === "feed" ? (
         <div
-          onClick={() => props.setSel(null)}
+          onClick={props.onHomeClick}
           style={{
             display: "flex",
             alignItems: "center",
@@ -204,7 +206,7 @@ export function FeedTopBar(props: FeedTopBarProps) {
             type="text"
             placeholder="Search posts, communities, users…"
             value={props.q}
-            onChange={(e) => props.setQ(e.target.value)}
+            onChange={(e) => props.onQueryChange(e.target.value)}
           />
         ) : (
           <input
@@ -218,17 +220,21 @@ export function FeedTopBar(props: FeedTopBarProps) {
 
       <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
         {props.mode === "feed"
-          ? [["🔥", "Hot"], ["✦", "New"], ["▲", "Top"], ["↑", "Rising"]].map(
-              ([ic, s]) => (
+          ? ([
+              ["🔥", "hot", "Hot"],
+              ["✦", "new", "New"],
+              ["▲", "top", "Top"],
+              ["↑", "rising", "Rising"],
+            ] as const).map(([ic, value, label]) => (
                 <button
-                  key={s}
-                  className={`srt ${sort === s ? "on" : ""}`}
-                  onClick={() => setSort(s)}
+                  key={value}
+                  className={`srt ${props.sort === value ? "on" : ""}`}
+                  onClick={() => props.onSortChange(value)}
+                  type="button"
                 >
-                  {sort === s ? `${ic} ${s}` : s}
+                  {props.sort === value ? `${ic} ${label}` : label}
                 </button>
-              )
-            )
+              ))
           : ["HOT", "NEW", "TOP", "RISING"].map((s, i) => (
               <button key={s} className={`srt ${i === 0 ? "on" : ""}`} type="button">
                 {s}
@@ -368,7 +374,7 @@ export function FeedSidebar(props: FeedSidebarProps) {
           <div
             key={String(item.id)}
             className={`com-item ${props.sel === item.id ? "active" : ""}`}
-            onClick={() => props.setSel(item.id)}
+            onClick={() => props.onSelect(item.id)}
             style={{ cursor: "pointer" }}
           >
             <span style={{ fontSize: 13 }}>{item.icon}</span>
@@ -386,15 +392,23 @@ export function FeedSidebar(props: FeedSidebarProps) {
             Home Feed
           </Link>
 
-          <div className="com-item">
+          <Link
+            href="/feed?scope=popular"
+            className="com-item"
+            style={{ textDecoration: "none" }}
+          >
             <span style={{ fontSize: 13 }}>🔥</span>
             Popular
-          </div>
+          </Link>
 
-          <div className="com-item">
+          <Link
+            href="/feed?scope=all"
+            className="com-item"
+            style={{ textDecoration: "none" }}
+          >
             <span style={{ fontSize: 13 }}>✦</span>
             All Posts
-          </div>
+          </Link>
         </>
       )}
 
@@ -405,7 +419,7 @@ export function FeedSidebar(props: FeedSidebarProps) {
           <div
             key={c.id}
             className={`com-item ${norm(props.sel) === norm(c.name) ? "active" : ""}`}
-            onClick={() => props.setSel(c.name)}
+            onClick={() => props.onSelect(c.name)}
             style={
               norm(props.sel) === norm(c.name)
                 ? { color: c.color, background: c.color + "12", cursor: "pointer" }

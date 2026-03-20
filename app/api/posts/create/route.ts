@@ -7,6 +7,7 @@ import {
   getLinkFallbackTitle,
   normalizeExternalUrl,
 } from "../../../../lib/linkPreview";
+import { extractStoredR2Key } from "../../../../r2";
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -74,12 +75,9 @@ export async function POST(req: Request) {
     const hasAllowedExtension = /\.(?:jpe?g|png|webp|gif)$/i.test(
       trimmedImageKey
     );
-    const publicBase = process.env.NEXT_PUBLIC_R2_PUBLIC_URL?.replace(/\/+$/, "");
-    const isR2PublicUrl =
-      Boolean(publicBase) && trimmedImageKey.startsWith(`${publicBase}/`);
-    const isLegacyUploadKey = trimmedImageKey.startsWith("posts/");
+    const storedKey = extractStoredR2Key(trimmedImageKey);
 
-    if ((!isR2PublicUrl && !isLegacyUploadKey) || !hasAllowedExtension) {
+    if (!storedKey || !hasAllowedExtension) {
       return NextResponse.json(
         { error: "Invalid image upload." },
         { status: 400 }

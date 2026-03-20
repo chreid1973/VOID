@@ -14,6 +14,7 @@ type CommunityItem = {
   icon: string;
   memberCount: number;
   postCount: number;
+  isMember: boolean;
 };
 
 type RailPost = {

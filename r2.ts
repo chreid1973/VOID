@@ -2,7 +2,12 @@
 // Cloudflare R2 is S3-compatible — we use the AWS SDK with a custom endpoint.
 // R2 free tier: 10 GB storage, 1M write ops, 10M read ops per month.
 
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // R2 uses the standard S3 SDK pointed at Cloudflare's endpoint
@@ -37,6 +42,15 @@ export async function getUploadUrl(
   return { uploadUrl, key, publicUrl: getPublicUrl(key) };
 }
 
+export async function getObjectUrl(key: string, expiresIn = 3600) {
+  const command = new GetObjectCommand({
+    Bucket: BUCKET,
+    Key: key,
+  });
+
+  return getSignedUrl(r2, command, { expiresIn });
+}
+
 // ── Delete an object ───────────────────────────────────────────
 
 export async function deleteObject(key: string) {
@@ -49,6 +63,42 @@ export function getPublicUrl(key: string): string {
   return `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${key}`;
 }
 
+export function extractStoredR2Key(imageRef: string): string | null {
+  if (/^(?:posts|avatars)\//i.test(imageRef)) {
+    return imageRef;
+  }
+
+  try {
+    const url = new URL(imageRef);
+    const pathname = url.pathname.replace(/^\/+/, "");
+
+    if (url.hostname.endsWith(".r2.dev")) {
+      return pathname || null;
+    }
+
+    if (url.hostname.endsWith(".r2.cloudflarestorage.com")) {
+      if (pathname.startsWith(`${BUCKET}/`)) {
+        return pathname.slice(BUCKET.length + 1) || null;
+      }
+
+      return pathname || null;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 export function resolveStoredImageUrl(imageRef: string): string {
-  return /^https?:\/\//i.test(imageRef) ? imageRef : getPublicUrl(imageRef);
+  const key = extractStoredR2Key(imageRef);
+
+  if (key) {
+    return `/api/media/${key
+      .split("/")
+      .map((segment) => encodeURIComponent(segment))
+      .join("/")}`;
+  }
+
+  return imageRef;
 }

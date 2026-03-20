@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import "../app/(main)/feed/feed.css";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
@@ -29,12 +30,23 @@ type FeedCommunity = {
   icon: string;
   memberCount: number;
   postCount: number;
+  isMember: boolean;
 };
+
+type FeedScope = "home" | "popular" | "all";
+type FeedSort = "hot" | "new" | "top" | "rising";
 
 type FeedClientProps = {
   initialPosts: FeedPost[];
   communities: FeedCommunity[];
   initialSelectedCommunity: string | null;
+  initialScope: FeedScope;
+  initialSort: FeedSort;
+  initialQuery: string;
+  currentPage: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  isPersonalizedHome: boolean;
   currentUser: {
     username: string;
     displayName: string | null;
@@ -48,7 +60,6 @@ const fmt = (n: number) => {
 
 const voteDirection = (value: 1 | -1 | null | undefined) =>
   value === 1 ? "up" : value === -1 ? "dn" : null;
-const INITIAL_VISIBLE_POSTS = 20;
 
 const norm = (value: string | null | undefined) =>
   (value ?? "").trim().toLowerCase();
@@ -511,8 +522,8 @@ function RightRail({
         {[
           { k: "Total Members", v: totalMembers.toLocaleString() },
           { k: "Communities", v: communities.length.toLocaleString() },
-          { k: "Posts Loaded", v: totalPosts.toLocaleString() },
-          { k: "Comments Loaded", v: totalComments.toLocaleString() },
+          { k: "Total Posts", v: totalPosts.toLocaleString() },
+          { k: "Comments On Page", v: totalComments.toLocaleString() },
         ].map((s, i) => (
           <div
             key={s.k}
@@ -533,120 +544,328 @@ function RightRail({
   );
 }
 
+function CommunityMembershipButton({
+  community,
+}: {
+  community: FeedCommunity;
+}) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+
+  async function handleClick() {
+    if (pending) return;
+
+    setPending(true);
+
+    try {
+      const res = await fetch(`/api/communities/${community.id}/membership`, {
+        method: community.isMember ? "DELETE" : "POST",
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        alert(data?.error || "Failed to update community membership.");
+        return;
+      }
+
+      router.refresh();
+    } catch {
+      alert("Failed to update community membership.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void handleClick()}
+      disabled={pending}
+      style={{
+        background: community.isMember ? "none" : "#ff4826",
+        border: community.isMember ? "1px solid #252424" : "none",
+        borderRadius: 9,
+        color: community.isMember ? "#d8d2ca" : "#fff",
+        fontFamily: "var(--font-outfit), sans-serif",
+        fontSize: 12.5,
+        fontWeight: 700,
+        padding: "8px 14px",
+        cursor: pending ? "not-allowed" : "pointer",
+        transition: "opacity .15s, transform .1s",
+        letterSpacing: ".03em",
+        boxShadow: community.isMember
+          ? "none"
+          : "0 3px 14px rgba(255,72,38,.28)",
+        opacity: pending ? 0.7 : 1,
+      }}
+    >
+      {pending
+        ? community.isMember
+          ? "Leaving..."
+          : "Joining..."
+        : community.isMember
+          ? "Joined"
+          : "Join"}
+    </button>
+  );
+}
+
 export default function FeedClient({
   initialPosts,
   communities,
   initialSelectedCommunity,
+  initialScope,
+  initialSort,
+  initialQuery,
+  currentPage,
+  hasNextPage,
+  hasPreviousPage,
+  isPersonalizedHome,
   currentUser,
 }: FeedClientProps) {
-  const [sel, setSel] = useState<string | null>(initialSelectedCommunity);
-  const [q, setQ] = useState("");
-  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_POSTS);
-
-  const posts = initialPosts;
-
-  const feed = posts.filter((p) => {
-    const byCom =
-      !sel ||
-      sel === "__popular" ||
-      sel === "__all" ||
-      norm(p.community) === norm(sel);
-
-    const byQ =
-      !q ||
-      p.title.toLowerCase().includes(q.toLowerCase()) ||
-      p.body.toLowerCase().includes(q.toLowerCase()) ||
-      (p.url ?? "").toLowerCase().includes(q.toLowerCase()) ||
-      p.author.toLowerCase().includes(q.toLowerCase());
-
-    return byCom && byQ;
-  });
-  const visibleFeed = feed.slice(0, visibleCount);
-  const hasMorePosts = feed.length > visibleCount;
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [q, setQ] = useState(initialQuery);
+  const sel =
+    initialSelectedCommunity ??
+    (initialScope === "popular"
+      ? "__popular"
+      : initialScope === "all"
+        ? "__all"
+        : null);
+  const selectedCommunity = initialSelectedCommunity
+    ? communities.find(
+        (community) => norm(community.name) === norm(initialSelectedCommunity)
+      ) ?? null
+    : null;
 
   useEffect(() => {
-    setVisibleCount(INITIAL_VISIBLE_POSTS);
-  }, [sel, q]);
+    setQ(initialQuery);
+  }, [initialQuery]);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      const normalizedQuery = q.trim();
+      const currentQuery = initialQuery.trim();
+
+      if (normalizedQuery === currentQuery) return;
+
+      const params = new URLSearchParams(searchParams.toString());
+
+      if (normalizedQuery) {
+        params.set("q", normalizedQuery);
+      } else {
+        params.delete("q");
+      }
+
+      params.delete("page");
+
+      const nextUrl = params.toString() ? `${pathname}?${params}` : pathname;
+      router.replace(nextUrl, { scroll: false });
+    }, 250);
+
+    return () => window.clearTimeout(handle);
+  }, [initialQuery, pathname, q, router, searchParams]);
+
+  function updateFeedParams(
+    updates: Record<string, string | null | undefined>,
+    replace = false
+  ) {
+    const params = new URLSearchParams(searchParams.toString());
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (!value) {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    }
+
+    const nextUrl = params.toString() ? `${pathname}?${params}` : pathname;
+
+    if (replace) {
+      router.replace(nextUrl, { scroll: false });
+      return;
+    }
+
+    router.push(nextUrl, { scroll: false });
+  }
+
+  function handleSelect(selection: string | null) {
+    if (selection === null) {
+      updateFeedParams({ community: null, scope: null, page: null });
+      return;
+    }
+
+    if (selection === "__popular") {
+      updateFeedParams({ community: null, scope: "popular", page: null });
+      return;
+    }
+
+    if (selection === "__all") {
+      updateFeedParams({ community: null, scope: "all", page: null });
+      return;
+    }
+
+    updateFeedParams({ community: selection, scope: null, page: null });
+  }
+
+  function handleSortChange(sort: FeedSort) {
+    updateFeedParams({ sort, page: null });
+  }
+
+  function handlePageChange(nextPage: number) {
+    updateFeedParams({ page: nextPage > 1 ? String(nextPage) : null });
+  }
 
   return (
     <div className="feed-shell">
       <FeedTopBar
         mode="feed"
         q={q}
-        setQ={setQ}
-        setSel={setSel}
+        sort={initialSort}
+        onQueryChange={setQ}
+        onSortChange={handleSortChange}
+        onHomeClick={() => handleSelect(null)}
         currentUser={currentUser}
       />
 
       <div className="feed-container">
-        <FeedSidebar mode="feed" sel={sel} setSel={setSel} communities={communities} />
+        <FeedSidebar
+          mode="feed"
+          sel={sel}
+          onSelect={handleSelect}
+          communities={communities}
+        />
 
         <main className="feed-main">
           <div style={{ marginBottom: 20 }}>
-            {sel && sel !== "__popular" && sel !== "__all" ? (
-              (() => {
-                const c = communities.find((x) => norm(x.name) === norm(sel));
-                return c ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div
+            {selectedCommunity ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 14,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 12,
+                      background: selectedCommunity.color + "1e",
+                      color: selectedCommunity.color,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 20,
+                    }}
+                  >
+                    {selectedCommunity.icon}
+                  </div>
+
+                  <div>
+                    <h1
                       style={{
-                        width: 42,
-                        height: 42,
-                        borderRadius: 12,
-                        background: c.color + "1e",
-                        color: c.color,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 20,
+                        fontFamily: "var(--font-fraunces), Georgia, serif",
+                        fontSize: 21,
+                        fontWeight: 600,
+                        color: "#e8e3db",
+                        letterSpacing: "-.02em",
                       }}
                     >
-                      {c.icon}
-                    </div>
-
-                    <div>
-                      <h1
-                        style={{
-                          fontFamily: "var(--font-fraunces), Georgia, serif",
-                          fontSize: 21,
-                          fontWeight: 600,
-                          color: "#e8e3db",
-                          letterSpacing: "-.02em",
-                        }}
-                      >
-                        {c.displayName}
-                      </h1>
-                      <p style={{ fontSize: 11.5, color: "#484644", marginTop: 2 }}>
-                        {c.memberCount.toLocaleString()} members ·{" "}
-                        {c.postCount.toLocaleString()} posts
-                      </p>
-                    </div>
+                      {selectedCommunity.displayName}
+                    </h1>
+                    <p style={{ fontSize: 11.5, color: "#484644", marginTop: 2 }}>
+                      {selectedCommunity.memberCount.toLocaleString()} members ·{" "}
+                      {selectedCommunity.postCount.toLocaleString()} posts
+                    </p>
                   </div>
-                ) : null;
-              })()
+                </div>
+
+                {currentUser ? (
+                  <CommunityMembershipButton community={selectedCommunity} />
+                ) : null}
+              </div>
+            ) : initialScope === "popular" ? (
+              <div>
+                <h1 className="feed-title">Popular Posts</h1>
+                <p style={{ fontSize: 12, color: "#55514d", marginTop: 4 }}>
+                  Posts with activity across all communities.
+                </p>
+              </div>
+            ) : initialScope === "all" ? (
+              <div>
+                <h1 className="feed-title">All Posts</h1>
+                <p style={{ fontSize: 12, color: "#55514d", marginTop: 4 }}>
+                  Every community, ordered by the sort you choose.
+                </p>
+              </div>
             ) : (
-              <h1 className="feed-title">Today's best conversations</h1>
+              <div>
+                <h1 className="feed-title">Home Feed</h1>
+                <p style={{ fontSize: 12, color: "#55514d", marginTop: 4 }}>
+                  {isPersonalizedHome
+                    ? "Posts from the communities you joined."
+                    : "Latest posts across the network. Join communities to personalize this feed."}
+                </p>
+              </div>
             )}
           </div>
 
-          {feed.length > 0 ? (
+          {initialPosts.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {visibleFeed.map((p, i) => (
+              {initialPosts.map((p, i) => (
                 <PostCard key={p.id} p={p} idx={i} communities={communities} />
               ))}
 
-              {hasMorePosts ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  marginTop: 10,
+                }}
+              >
                 <button
                   className="act"
                   type="button"
-                  onClick={() =>
-                    setVisibleCount((current) => current + INITIAL_VISIBLE_POSTS)
-                  }
-                  style={{ alignSelf: "flex-start", marginTop: 6 }}
+                  disabled={!hasPreviousPage}
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  style={{
+                    border: "1px solid #242323",
+                    borderRadius: 7,
+                    opacity: hasPreviousPage ? 1 : 0.45,
+                    cursor: hasPreviousPage ? "pointer" : "not-allowed",
+                  }}
                 >
-                  Show more posts
+                  ← Previous
                 </button>
-              ) : null}
+
+                <span style={{ fontSize: 12, color: "#5f5b57" }}>
+                  Page {currentPage}
+                </span>
+
+                <button
+                  className="act"
+                  type="button"
+                  disabled={!hasNextPage}
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  style={{
+                    border: "1px solid #242323",
+                    borderRadius: 7,
+                    opacity: hasNextPage ? 1 : 0.45,
+                    cursor: hasNextPage ? "pointer" : "not-allowed",
+                  }}
+                >
+                  Next →
+                </button>
+              </div>
             </div>
           ) : (
             <div style={{ textAlign: "center", padding: "80px 0", color: "#343331" }}>
@@ -659,7 +878,7 @@ export default function FeedClient({
           )}
         </main>
 
-        <RightRail posts={posts} communities={communities} />
+        <RightRail posts={initialPosts} communities={communities} />
       </div>
     </div>
   );

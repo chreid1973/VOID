@@ -226,6 +226,7 @@ export default async function PostPage({
     icon: community.icon,
     memberCount: community._count.members,
     postCount: community._count.posts,
+    isMember: false,
   }));
 
   const formattedRailPosts = railPosts.map((item) => ({
