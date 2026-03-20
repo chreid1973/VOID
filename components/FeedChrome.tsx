@@ -501,13 +501,13 @@ export function FeedSidebar(props: FeedSidebarProps) {
       )}
 
       <div style={{ marginTop: 28, padding: "0 10px" }}>
-        <p style={{ fontSize: 10, color: "#2c2b2a", lineHeight: 1.7 }}>
+        <p style={{ fontSize: 10, color: "#5f5a54", lineHeight: 1.7 }}>
           © 2026 Void — a better internet
           <br />
           Privacy · Terms · Help · Careers ·{" "}
           <Link
             href="/moderation-philosophy"
-            style={{ color: "#3b3937", textDecoration: "none" }}
+            style={{ color: "#7b746c", textDecoration: "none" }}
           >
             Moderation
           </Link>
