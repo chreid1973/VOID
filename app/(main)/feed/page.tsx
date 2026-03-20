@@ -14,8 +14,25 @@ type RankedPost = {
   id: string;
   score: number;
   commentCount: number;
+  replyCount: number;
   createdAt: Date;
 };
+
+const HOT_RANKING = {
+  voteWeight: 1,
+  commentWeight: 2,
+  replyWeight: 1,
+  ageOffsetHours: 2,
+  agePower: 1.3,
+} as const;
+
+const RISING_RANKING = {
+  voteWeight: 0.5,
+  commentWeight: 2,
+  replyWeight: 1,
+  ageOffsetHours: 2,
+  agePower: 1.2,
+} as const;
 
 function timeAgo(date: Date) {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -69,36 +86,42 @@ function ageHours(createdAt: Date, nowMs: number) {
 }
 
 function hotScore(post: RankedPost, nowMs: number) {
+  const netVotes = post.score;
   const hours = ageHours(post.createdAt, nowMs);
-  const engagement =
-    Math.max(post.score, 0) * 1.35 +
-    post.commentCount * 2.3 +
-    Math.min(post.score, 0) * 0.6 +
-    2;
+  const hotBase =
+    netVotes * HOT_RANKING.voteWeight +
+    post.commentCount * HOT_RANKING.commentWeight +
+    post.replyCount * HOT_RANKING.replyWeight;
 
-  return engagement / Math.pow(hours + 2, 1.32);
+  return hotBase / Math.pow(hours + HOT_RANKING.ageOffsetHours, HOT_RANKING.agePower);
 }
 
 function risingScore(post: RankedPost, nowMs: number) {
+  const netVotes = post.score;
   const hours = ageHours(post.createdAt, nowMs);
-  const engagement =
-    Math.max(post.score, 0) * 1.1 + post.commentCount * 2.8 + 1;
-  const freshnessPenalty = hours > 72 ? 0.18 : 1;
+  const risingBase =
+    netVotes * RISING_RANKING.voteWeight +
+    post.commentCount * RISING_RANKING.commentWeight +
+    post.replyCount * RISING_RANKING.replyWeight;
 
-  return (engagement * freshnessPenalty) / Math.pow(hours + 2, 1.9);
+  return risingBase / Math.pow(
+    hours + RISING_RANKING.ageOffsetHours,
+    RISING_RANKING.agePower
+  );
 }
 
 function compareRankedPosts(a: RankedPost, b: RankedPost, sort: FeedSort, nowMs: number) {
   const createdAtDelta = b.createdAt.getTime() - a.createdAt.getTime();
   const scoreDelta = b.score - a.score;
   const commentDelta = b.commentCount - a.commentCount;
+  const replyDelta = b.replyCount - a.replyCount;
 
   if (sort === "new") {
-    return createdAtDelta || scoreDelta || commentDelta || a.id.localeCompare(b.id);
+    return createdAtDelta || scoreDelta || commentDelta || replyDelta || a.id.localeCompare(b.id);
   }
 
   if (sort === "top") {
-    return scoreDelta || commentDelta || createdAtDelta || a.id.localeCompare(b.id);
+    return scoreDelta || createdAtDelta || commentDelta || replyDelta || a.id.localeCompare(b.id);
   }
 
   const rankDelta =
@@ -110,7 +133,7 @@ function compareRankedPosts(a: RankedPost, b: RankedPost, sort: FeedSort, nowMs:
     return rankDelta;
   }
 
-  return scoreDelta || commentDelta || createdAtDelta || a.id.localeCompare(b.id);
+  return scoreDelta || commentDelta || replyDelta || createdAtDelta || a.id.localeCompare(b.id);
 }
 
 export default async function FeedPage({
@@ -250,15 +273,63 @@ export default async function FeedPage({
       : undefined;
 
   const rankingNowMs = Date.now();
-  const rankedPosts = await prisma.post.findMany({
+  const rankedPostsRaw = await prisma.post.findMany({
     where,
     select: {
       id: true,
       score: true,
-      commentCount: true,
       createdAt: true,
     },
   });
+
+  const rankedPostIds = rankedPostsRaw.map((post) => post.id);
+  const [topLevelCommentCounts, replyCounts] =
+    rankedPostIds.length > 0
+      ? await Promise.all([
+          prisma.comment.groupBy({
+            by: ["postId"],
+            where: {
+              postId: {
+                in: rankedPostIds,
+              },
+              isDeleted: false,
+              parentId: null,
+            },
+            _count: {
+              _all: true,
+            },
+          }),
+          prisma.comment.groupBy({
+            by: ["postId"],
+            where: {
+              postId: {
+                in: rankedPostIds,
+              },
+              isDeleted: false,
+              parentId: {
+                not: null,
+              },
+            },
+            _count: {
+              _all: true,
+            },
+          }),
+        ])
+      : [[], []];
+
+  const topLevelCommentCountMap = new Map(
+    topLevelCommentCounts.map((entry) => [entry.postId, entry._count._all])
+  );
+  const replyCountMap = new Map(
+    replyCounts.map((entry) => [entry.postId, entry._count._all])
+  );
+  const rankedPosts = rankedPostsRaw.map((post) => ({
+    id: post.id,
+    score: post.score,
+    commentCount: topLevelCommentCountMap.get(post.id) ?? 0,
+    replyCount: replyCountMap.get(post.id) ?? 0,
+    createdAt: post.createdAt,
+  }));
 
   rankedPosts.sort((a, b) => compareRankedPosts(a, b, initialSort, rankingNowMs));
 
