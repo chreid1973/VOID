@@ -12,6 +12,7 @@ export default function Page() {
       }}
     >
       <SignIn
+        fallbackRedirectUrl="/feed"
         appearance={{
           elements: {
             card: {

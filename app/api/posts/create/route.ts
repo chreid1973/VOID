@@ -47,12 +47,10 @@ export async function POST(req: Request) {
   });
 
   if (!user) {
-    user = await prisma.user.create({
-      data: {
-        clerkId: userId,
-        username: `user_${userId.slice(0, 8)}`,
-      },
-    });
+    return NextResponse.json(
+      { error: "Finish setting up your profile before posting." },
+      { status: 403 }
+    );
   }
 
   const trimmedTitle = title?.trim() || "";

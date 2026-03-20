@@ -1,7 +1,16 @@
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "../../auth";
 import { prisma } from "../../lib/prisma";
 import SubmitForm from "./submit-form";
 
 export default async function SubmitPage() {
+  const [{ userId }, user] = await Promise.all([auth(), getCurrentUser()]);
+
+  if (userId && !user) {
+    redirect("/onboarding");
+  }
+
   const communities = await prisma.community.findMany({
     orderBy: { displayName: "asc" },
     select: {

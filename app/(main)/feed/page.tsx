@@ -1,4 +1,6 @@
+import { auth } from "@clerk/nextjs/server";
 import { Prisma } from "@prisma/client";
+import { redirect } from "next/navigation";
 import FeedClient from "../../../components/FeedClient";
 import { getCurrentUser } from "../../../auth";
 import { prisma } from "../../../lib/prisma";
@@ -122,7 +124,12 @@ export default async function FeedPage({
     q?: string | string[];
   };
 }) {
-  const user = await getCurrentUser();
+  const [{ userId }, user] = await Promise.all([auth(), getCurrentUser()]);
+
+  if (userId && !user) {
+    redirect("/onboarding");
+  }
+
   const initialSelectedCommunity = firstParam(searchParams?.community)?.trim() || null;
   const initialScope = parseScope(firstParam(searchParams?.scope));
   const initialSort = parseSort(firstParam(searchParams?.sort));

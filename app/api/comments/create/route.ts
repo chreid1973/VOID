@@ -32,12 +32,10 @@ export async function POST(req: Request) {
   });
 
   if (!user) {
-    user = await prisma.user.create({
-      data: {
-        clerkId: userId,
-        username: `user_${userId.slice(0, 8)}`,
-      },
-    });
+    return NextResponse.json(
+      { error: "Finish setting up your profile before commenting." },
+      { status: 403 }
+    );
   }
 
   if (trimmedParentId) {
