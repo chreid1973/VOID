@@ -126,6 +126,57 @@ function sortComments(comments: PostComment[], sort: CommentSort) {
   return sorted;
 }
 
+function buildCommentMaps(
+  comments: PostComment[],
+  parentId: string | null = null,
+  rootId: string | null = null,
+  parentMap = new Map<string, string | null>(),
+  rootMap = new Map<string, string>()
+) {
+  for (const comment of comments) {
+    const nextRootId = rootId ?? comment.id;
+
+    parentMap.set(comment.id, parentId);
+    rootMap.set(comment.id, nextRootId);
+
+    buildCommentMaps(
+      comment.replies,
+      comment.id,
+      nextRootId,
+      parentMap,
+      rootMap
+    );
+  }
+
+  return { parentMap, rootMap };
+}
+
+function getCommentHashId(commentId: string) {
+  return `comment-${commentId}`;
+}
+
+function parseCommentHash(hash: string) {
+  if (!hash.startsWith("#comment-")) return null;
+
+  const commentId = hash.slice("#comment-".length).trim();
+  return commentId ? decodeURIComponent(commentId) : null;
+}
+
+function getCommentAncestors(
+  parentMap: Map<string, string | null>,
+  commentId: string
+) {
+  const ancestors: string[] = [];
+  let current = parentMap.get(commentId) ?? null;
+
+  while (current) {
+    ancestors.push(current);
+    current = parentMap.get(current) ?? null;
+  }
+
+  return ancestors;
+}
+
 function Votes({
   postId,
   n,
@@ -789,6 +840,7 @@ function CommentNode({
   initialNowMs,
   replyingTo,
   collapsedReplies,
+  highlightedCommentId,
   onReply,
   onCancelReply,
   onToggleReplies,
@@ -801,6 +853,7 @@ function CommentNode({
   initialNowMs: number;
   replyingTo: string | null;
   collapsedReplies: Record<string, boolean>;
+  highlightedCommentId: string | null;
   onReply: (commentId: string) => void;
   onCancelReply: () => void;
   onToggleReplies: (commentId: string) => void;
@@ -810,6 +863,7 @@ function CommentNode({
   const [isEditing, setIsEditing] = useState(false);
   const [editBody, setEditBody] = useState(comment.body);
   const [pending, setPending] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [editWindowExpired, setEditWindowExpired] = useState(
     () =>
       new Date(comment.createdAt).getTime() + 60_000 <= initialNowMs
@@ -832,6 +886,7 @@ function CommentNode({
   const authorLabel = comment.isDeleted
     ? "deleted"
     : comment.author.displayName || comment.author.username;
+  const isHighlighted = highlightedCommentId === comment.id;
 
   useEffect(() => {
     if (!comment.isOwner || comment.isDeleted || editWindowExpired) return;
@@ -852,6 +907,27 @@ function CommentNode({
 
     return () => window.clearTimeout(timeoutId);
   }, [comment.createdAt, comment.isDeleted, comment.isOwner, editWindowExpired]);
+
+  useEffect(() => {
+    if (!copied) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setCopied(false);
+    }, 1200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [copied]);
+
+  async function handleShare() {
+    const url = `${window.location.origin}/p/${postId}#${getCommentHashId(comment.id)}`;
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch {
+      window.prompt("Copy this link:", url);
+    }
+  }
 
   async function handleSave() {
     if (pending) return;
@@ -939,7 +1015,18 @@ function CommentNode({
   }
 
   return (
-    <>
+    <div
+      id={getCommentHashId(comment.id)}
+      style={{
+        scrollMarginTop: 96,
+        borderRadius: 12,
+        background: isHighlighted ? "rgba(255, 72, 38, 0.09)" : "transparent",
+        boxShadow: isHighlighted
+          ? "inset 0 0 0 1px rgba(255, 72, 38, 0.24)"
+          : "none",
+        transition: "background .18s ease, box-shadow .18s ease",
+      }}
+    >
       <div
         style={{
           display: "flex",
@@ -1085,8 +1172,13 @@ function CommentNode({
               </button>
             ) : null}
             {!comment.isDeleted ? (
-              <button className="act" style={{ fontSize: 11.5 }} type="button">
-                Share
+              <button
+                className="act"
+                style={{ fontSize: 11.5 }}
+                type="button"
+                onClick={() => void handleShare()}
+              >
+                {copied ? "✓ Copied" : "Share"}
               </button>
             ) : null}
             {comment.isOwner && !comment.isDeleted && canEdit ? (
@@ -1149,6 +1241,7 @@ function CommentNode({
                 initialNowMs={initialNowMs}
                 replyingTo={replyingTo}
                 collapsedReplies={collapsedReplies}
+                highlightedCommentId={highlightedCommentId}
                 onReply={onReply}
                 onCancelReply={onCancelReply}
                 onToggleReplies={onToggleReplies}
@@ -1158,7 +1251,7 @@ function CommentNode({
           ))}
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -1191,6 +1284,12 @@ export default function PostPageShell({
   const [collapsedReplies, setCollapsedReplies] = useState<
     Record<string, boolean>
   >({});
+  const [highlightedCommentId, setHighlightedCommentId] = useState<
+    string | null
+  >(null);
+  const [hashTargetCommentId, setHashTargetCommentId] = useState<
+    string | null
+  >(null);
   const [editingPost, setEditingPost] = useState(false);
   const [postBody, setPostBody] = useState("");
   const [postPending, setPostPending] = useState(false);
@@ -1200,6 +1299,8 @@ export default function PostPageShell({
   const sortedComments = sortComments(post.comments, commentSort);
   const visibleComments = sortedComments.slice(0, visibleCommentCount);
   const hasMoreComments = sortedComments.length > visibleCommentCount;
+  const { parentMap: commentParentMap, rootMap: commentRootMap } =
+    buildCommentMaps(post.comments);
 
   useEffect(() => {
     setNowMs(Date.now());
@@ -1220,6 +1321,96 @@ export default function PostPageShell({
 
     return () => window.clearTimeout(timeoutId);
   }, [actionNotice]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncHashTarget = () => {
+      setHashTargetCommentId(parseCommentHash(window.location.hash));
+    };
+
+    syncHashTarget();
+    window.addEventListener("hashchange", syncHashTarget);
+
+    return () => window.removeEventListener("hashchange", syncHashTarget);
+  }, []);
+
+  useEffect(() => {
+    if (!hashTargetCommentId) return;
+
+    const rootCommentId = commentRootMap.get(hashTargetCommentId);
+
+    if (!rootCommentId) return;
+
+    const ancestorIds = getCommentAncestors(
+      commentParentMap,
+      hashTargetCommentId
+    );
+    const needsExpansion = ancestorIds.some((id) => collapsedReplies[id]);
+    const rootIndex = sortedComments.findIndex(
+      (comment) => comment.id === rootCommentId
+    );
+    const requiredVisibleCount =
+      rootIndex >= 0 ? Math.max(20, rootIndex + 1) : 20;
+    const needsMoreVisible = visibleCommentCount < requiredVisibleCount;
+
+    if (needsExpansion) {
+      setCollapsedReplies((current) => {
+        const next = { ...current };
+
+        for (const ancestorId of ancestorIds) {
+          if (next[ancestorId]) {
+            next[ancestorId] = false;
+          }
+        }
+
+        return next;
+      });
+    }
+
+    if (needsMoreVisible) {
+      setVisibleCommentCount((current) =>
+        Math.max(current, requiredVisibleCount)
+      );
+    }
+
+    if (needsExpansion || needsMoreVisible) return;
+
+    const timeoutId = window.setTimeout(() => {
+      const element = document.getElementById(
+        getCommentHashId(hashTargetCommentId)
+      );
+
+      if (!element) return;
+
+      element.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      setHighlightedCommentId(hashTargetCommentId);
+    }, 80);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    collapsedReplies,
+    commentParentMap,
+    commentRootMap,
+    hashTargetCommentId,
+    sortedComments,
+    visibleCommentCount,
+  ]);
+
+  useEffect(() => {
+    if (!highlightedCommentId) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setHighlightedCommentId((current) =>
+        current === highlightedCommentId ? null : current
+      );
+    }, 2200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [highlightedCommentId]);
 
   async function handlePostSave() {
     if (postPending) return;
@@ -1664,6 +1855,7 @@ export default function PostPageShell({
                       initialNowMs={initialNowMs}
                       replyingTo={replyingTo}
                       collapsedReplies={collapsedReplies}
+                      highlightedCommentId={highlightedCommentId}
                       onReply={handleReply}
                       onCancelReply={() => setReplyingTo(null)}
                       onToggleReplies={toggleReplies}
