@@ -604,7 +604,7 @@ function CommunityMembershipButton({
           ? "Leaving..."
           : "Joining..."
         : community.isMember
-          ? "Joined"
+          ? "Leave"
           : "Join"}
     </button>
   );
