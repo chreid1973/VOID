@@ -28,13 +28,55 @@ function formatUserVote(value: number | null | undefined): 1 | -1 | null {
   return value === 1 ? 1 : value === -1 ? -1 : null;
 }
 
+type LoadedComment = {
+  id: string;
+  parentId: string | null;
+  body: string;
+  score: number;
+  userVote: 1 | -1 | null;
+  isDeleted: boolean;
+  isOwner: boolean;
+  createdAt: string;
+  author: {
+    username: string;
+    displayName: string | null;
+  };
+  replies: LoadedComment[];
+};
+
+function buildCommentTree(
+  flatComments: Array<Omit<LoadedComment, "replies">>
+): LoadedComment[] {
+  const map = new Map<string, LoadedComment>();
+  const roots: LoadedComment[] = [];
+
+  for (const comment of flatComments) {
+    map.set(comment.id, { ...comment, replies: [] });
+  }
+
+  for (const comment of flatComments) {
+    const node = map.get(comment.id);
+
+    if (!node) continue;
+
+    if (comment.parentId && map.has(comment.parentId)) {
+      map.get(comment.parentId)?.replies.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  return roots;
+}
+
 export default async function PostPage({
   params,
 }: {
   params: { id: string };
 }) {
+  const renderedAt = new Date().toISOString();
   const user = await getCurrentUser();
-  const [post, communities, railPosts] = await Promise.all([
+  const [post, comments, communities, railPosts] = await Promise.all([
     prisma.post.findUnique({
       where: { id: params.id },
       include: {
@@ -52,37 +94,20 @@ export default async function PostPage({
             icon: true,
           },
         },
-        comments: {
-          where: {
-            isDeleted: false,
-            parentId: null,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-          include: {
-            author: {
-              select: {
-                username: true,
-                displayName: true,
-              },
-            },
-            replies: {
-              where: {
-                isDeleted: false,
-              },
-              orderBy: {
-                createdAt: "asc",
-              },
-              include: {
-                author: {
-                  select: {
-                    username: true,
-                    displayName: true,
-                  },
-                },
-              },
-            },
+      },
+    }),
+    prisma.comment.findMany({
+      where: {
+        postId: params.id,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+      include: {
+        author: {
+          select: {
+            username: true,
+            displayName: true,
           },
         },
       },
@@ -135,11 +160,11 @@ export default async function PostPage({
             value: true,
           },
         }),
-        post.comments.length > 0
+        comments.length > 0
           ? prisma.vote.findMany({
               where: {
                 userId: user.id,
-                commentId: { in: post.comments.map((comment) => comment.id) },
+                commentId: { in: comments.map((comment) => comment.id) },
               },
               select: {
                 commentId: true,
@@ -160,6 +185,7 @@ export default async function PostPage({
     createdAt: post.createdAt.toISOString(),
     score: post.score,
     userVote: formatUserVote(postVote?.value),
+    isOwner: user?.id === post.authorId,
     commentCount: post.commentCount,
     author: {
       username: post.author.username,
@@ -171,26 +197,22 @@ export default async function PostPage({
       color: post.community.color,
       icon: post.community.icon,
     },
-    comments: post.comments.map((comment) => ({
-      id: comment.id,
-      body: comment.body,
-      score: comment.score,
-      userVote: formatUserVote(commentVoteMap.get(comment.id)),
-      createdAt: comment.createdAt.toISOString(),
-      author: {
-        username: comment.author.username,
-        displayName: comment.author.displayName,
-      },
-      replies: comment.replies.map((reply) => ({
-        id: reply.id,
-        body: reply.body,
-        createdAt: reply.createdAt.toISOString(),
+    comments: buildCommentTree(
+      comments.map((comment) => ({
+        id: comment.id,
+        parentId: comment.parentId,
+        body: comment.body,
+        score: comment.score,
+        userVote: formatUserVote(commentVoteMap.get(comment.id)),
+        isDeleted: comment.isDeleted,
+        isOwner: user?.id === comment.authorId,
+        createdAt: comment.createdAt.toISOString(),
         author: {
-          username: reply.author.username,
-          displayName: reply.author.displayName,
+          username: comment.author.username,
+          displayName: comment.author.displayName,
         },
-      })),
-    })),
+      }))
+    ),
   };
 
   const formattedCommunities = communities.map((community) => ({
@@ -219,6 +241,15 @@ export default async function PostPage({
       post={formattedPost}
       communities={formattedCommunities}
       railPosts={formattedRailPosts}
+      renderedAt={renderedAt}
+      currentUser={
+        user
+          ? {
+              username: user.username,
+              displayName: user.displayName,
+            }
+          : null
+      }
     />
   );
 }

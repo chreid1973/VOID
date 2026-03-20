@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "../app/(main)/feed/feed.css";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
 
@@ -32,20 +32,14 @@ type PostComment = {
   body: string;
   score: number;
   userVote: 1 | -1 | null;
+  isDeleted: boolean;
+  isOwner: boolean;
   createdAt: string;
   author: {
     username: string;
     displayName: string | null;
   };
-  replies: {
-    id: string;
-    body: string;
-    createdAt: string;
-    author: {
-      username: string;
-      displayName: string | null;
-    };
-  }[];
+  replies: PostComment[];
 };
 
 type CommentSort = "best" | "new" | "old";
@@ -57,6 +51,7 @@ type PostData = {
   createdAt: string;
   score: number;
   userVote: 1 | -1 | null;
+  isOwner: boolean;
   commentCount: number;
   author: {
     username: string;
@@ -80,9 +75,9 @@ function voteDirection(value: 1 | -1 | null | undefined) {
   return value === 1 ? "up" : value === -1 ? "dn" : null;
 }
 
-function timeAgo(dateString: string) {
+function timeAgo(dateString: string, nowMs: number) {
   const date = new Date(dateString);
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  const seconds = Math.floor((nowMs - date.getTime()) / 1000);
 
   if (seconds < 60) return "just now";
   const minutes = Math.floor(seconds / 60);
@@ -95,6 +90,10 @@ function timeAgo(dateString: string) {
   if (months < 12) return `${months}mo ago`;
   const years = Math.floor(months / 12);
   return `${years}y ago`;
+}
+
+function isCommentEditable(createdAt: string, nowMs: number) {
+  return nowMs - new Date(createdAt).getTime() <= 60_000;
 }
 
 function sortComments(comments: PostComment[], sort: CommentSort) {
@@ -764,15 +763,377 @@ function ReplyComposer({
   );
 }
 
+function CommentNode({
+  comment,
+  postId,
+  depth = 0,
+  nowMs,
+  initialNowMs,
+  replyingTo,
+  collapsedReplies,
+  onReply,
+  onCancelReply,
+  onToggleReplies,
+}: {
+  comment: PostComment;
+  postId: string;
+  depth?: number;
+  nowMs: number;
+  initialNowMs: number;
+  replyingTo: string | null;
+  collapsedReplies: Record<string, boolean>;
+  onReply: (commentId: string) => void;
+  onCancelReply: () => void;
+  onToggleReplies: (commentId: string) => void;
+}) {
+  const router = useRouter();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editBody, setEditBody] = useState(comment.body);
+  const [pending, setPending] = useState(false);
+  const [editWindowExpired, setEditWindowExpired] = useState(
+    () =>
+      new Date(comment.createdAt).getTime() + 60_000 <= initialNowMs
+  );
+  const isReply = depth > 0;
+  const isReplying = !comment.isDeleted && replyingTo === comment.id;
+  const hasReplies = comment.replies.length > 0;
+  const repliesCollapsed = collapsedReplies[comment.id] ?? false;
+  const showReplyThread = isReplying || (!repliesCollapsed && hasReplies);
+  const canEdit =
+    comment.isOwner &&
+    !comment.isDeleted &&
+    !editWindowExpired &&
+    isCommentEditable(comment.createdAt, nowMs);
+  const replyToggleLabel = repliesCollapsed
+    ? `show ${comment.replies.length} ${
+        comment.replies.length === 1 ? "reply" : "replies"
+      }`
+    : "hide replies";
+  const authorLabel = comment.isDeleted
+    ? "deleted"
+    : comment.author.displayName || comment.author.username;
+
+  useEffect(() => {
+    if (!comment.isOwner || comment.isDeleted || editWindowExpired) return;
+
+    const remainingMs =
+      new Date(comment.createdAt).getTime() + 60_000 - Date.now();
+
+    if (remainingMs <= 0) {
+      setEditWindowExpired(true);
+      setIsEditing(false);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setEditWindowExpired(true);
+      setIsEditing(false);
+    }, remainingMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [comment.createdAt, comment.isDeleted, comment.isOwner, editWindowExpired]);
+
+  async function handleSave() {
+    if (pending) return;
+
+    const body = editBody.trim();
+
+    if (!body) {
+      alert("Comment is required");
+      return;
+    }
+
+    setPending(true);
+
+    try {
+      const res = await fetch(`/api/comments/${comment.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ body }),
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        alert(data?.error || "Failed to update comment");
+        return;
+      }
+
+      setIsEditing(false);
+      router.refresh();
+    } catch {
+      alert("Failed to update comment");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (pending || !window.confirm("Delete this comment?")) return;
+
+    setPending(true);
+
+    try {
+      const res = await fetch(`/api/comments/${comment.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        alert(data?.error || "Failed to delete comment");
+        return;
+      }
+
+      onCancelReply();
+      setIsEditing(false);
+      router.refresh();
+    } catch {
+      alert("Failed to delete comment");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 7,
+          marginBottom: 6,
+        }}
+      >
+        <span
+          style={{
+            fontSize: isReply ? 12 : 12.5,
+            fontWeight: 600,
+            color: "#b0aba4",
+          }}
+        >
+          {authorLabel}
+        </span>
+        <span
+          style={{
+            fontSize: isReply ? 10.5 : 11,
+            color: "#383635",
+          }}
+        >
+          {timeAgo(comment.createdAt, nowMs)}
+        </span>
+      </div>
+
+      {isEditing ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSave();
+          }}
+        >
+          <textarea
+            value={editBody}
+            onChange={(e) => setEditBody(e.target.value)}
+            style={{
+              width: "100%",
+              background: "#111010",
+              border: "1px solid #252424",
+              borderRadius: 8,
+              padding: "10px 12px",
+              color: "#b8b4ac",
+              fontFamily: "var(--font-outfit), sans-serif",
+              fontSize: isReply ? 12.5 : 13.5,
+              lineHeight: 1.6,
+              resize: "vertical",
+              minHeight: isReply ? 72 : 88,
+              outline: "none",
+              transition: "border-color .2s",
+              marginBottom: 8,
+            }}
+          />
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0,
+            }}
+          >
+            <button
+              className="act"
+              style={{ fontSize: 11.5 }}
+              type="button"
+              onClick={() => {
+                setEditBody(comment.body);
+                setIsEditing(false);
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              className="act"
+              style={{ fontSize: 11.5 }}
+              type="submit"
+              disabled={pending}
+            >
+              {pending ? "Saving..." : "Save"}
+            </button>
+            {hasReplies ? (
+              <button
+                className="act"
+                style={{ fontSize: 11.5 }}
+                type="button"
+                onClick={() => onToggleReplies(comment.id)}
+              >
+                {replyToggleLabel}
+              </button>
+            ) : null}
+          </div>
+        </form>
+      ) : (
+        <>
+          <p
+            style={{
+              fontSize: isReply ? 12.5 : 13.5,
+              lineHeight: isReply ? 1.65 : 1.67,
+              color: "#9c9892",
+              marginBottom: 7,
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {comment.isDeleted ? "[deleted]" : comment.body}
+          </p>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0,
+            }}
+          >
+            {!comment.isDeleted ? (
+              <CommentVotes
+                commentId={comment.id}
+                n={comment.score}
+                initialVote={comment.userVote}
+              />
+            ) : null}
+            {!comment.isDeleted ? (
+              <button
+                className="act"
+                style={{ fontSize: 11.5, marginLeft: 4 }}
+                type="button"
+                onClick={() => onReply(comment.id)}
+              >
+                ↩ Reply
+              </button>
+            ) : null}
+            {hasReplies ? (
+              <button
+                className="act"
+                style={{ fontSize: 11.5 }}
+                type="button"
+                onClick={() => onToggleReplies(comment.id)}
+              >
+                {replyToggleLabel}
+              </button>
+            ) : null}
+            {!comment.isDeleted ? (
+              <button className="act" style={{ fontSize: 11.5 }} type="button">
+                Share
+              </button>
+            ) : null}
+            {comment.isOwner && !comment.isDeleted && canEdit ? (
+              <button
+                className="act"
+                style={{ fontSize: 11.5 }}
+                type="button"
+                onClick={() => {
+                  onCancelReply();
+                  setEditBody(comment.body);
+                  setIsEditing(true);
+                }}
+              >
+                Edit
+              </button>
+            ) : null}
+            {comment.isOwner && !comment.isDeleted ? (
+              <button
+                className="act"
+                style={{ fontSize: 11.5 }}
+                type="button"
+                onClick={() => void handleDelete()}
+              >
+                Delete
+              </button>
+            ) : null}
+          </div>
+        </>
+      )}
+
+      {showReplyThread ? (
+        <div
+          style={{
+            marginTop: 12,
+            marginLeft: 16,
+            paddingLeft: 16,
+            borderLeft: "1px solid #1e1e1e",
+          }}
+        >
+          {isReplying ? (
+            <ReplyComposer
+              postId={postId}
+              parentId={comment.id}
+              onCancel={onCancelReply}
+            />
+          ) : null}
+
+          {comment.replies.map((reply, index) => (
+            <div
+              key={reply.id}
+              style={{
+                marginTop: isReplying || index > 0 ? 12 : 0,
+              }}
+            >
+              <CommentNode
+                comment={reply}
+                postId={postId}
+                depth={depth + 1}
+                nowMs={nowMs}
+                initialNowMs={initialNowMs}
+                replyingTo={replyingTo}
+                collapsedReplies={collapsedReplies}
+                onReply={onReply}
+                onCancelReply={onCancelReply}
+                onToggleReplies={onToggleReplies}
+              />
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 export default function PostPageShell({
   post,
   communities,
   railPosts,
+  renderedAt,
+  currentUser,
 }: {
   post: PostData;
   communities: CommunityItem[];
   railPosts: RailPost[];
+  renderedAt: string;
+  currentUser: {
+    username: string;
+    displayName: string | null;
+  } | null;
 }) {
+  const router = useRouter();
+  const initialNowMs = new Date(renderedAt).getTime();
+  const [nowMs, setNowMs] = useState(initialNowMs);
   const [copied, setCopied] = useState(false);
   const [commentSort, setCommentSort] = useState<CommentSort>("best");
   const [visibleCommentCount, setVisibleCommentCount] = useState(20);
@@ -780,6 +1141,9 @@ export default function PostPageShell({
   const [collapsedReplies, setCollapsedReplies] = useState<
     Record<string, boolean>
   >({});
+  const [editingPost, setEditingPost] = useState(false);
+  const [postBody, setPostBody] = useState("");
+  const [postPending, setPostPending] = useState(false);
   const backHref = post.community.name
     ? `/feed?community=${encodeURIComponent(post.community.name)}`
     : "/feed";
@@ -787,9 +1151,99 @@ export default function PostPageShell({
   const visibleComments = sortedComments.slice(0, visibleCommentCount);
   const hasMoreComments = sortedComments.length > visibleCommentCount;
 
+  useEffect(() => {
+    setNowMs(Date.now());
+
+    const intervalId = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 30_000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  async function handlePostSave() {
+    if (postPending) return;
+
+    const update = postBody.trim();
+
+    if (!update) {
+      alert("Update is required");
+      return;
+    }
+
+    setPostPending(true);
+
+    try {
+      const res = await fetch(`/api/posts/${post.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          update,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        alert(data?.error || "Failed to update post");
+        return;
+      }
+
+      setPostBody("");
+      setEditingPost(false);
+      router.refresh();
+    } catch {
+      alert("Failed to update post");
+    } finally {
+      setPostPending(false);
+    }
+  }
+
+  async function handlePostDelete() {
+    if (postPending || !window.confirm("Delete this post?")) return;
+
+    setPostPending(true);
+
+    try {
+      const res = await fetch(`/api/posts/${post.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        alert(data?.error || "Failed to delete post");
+        return;
+      }
+
+      router.push(backHref);
+      router.refresh();
+    } catch {
+      alert("Failed to delete post");
+    } finally {
+      setPostPending(false);
+    }
+  }
+
+  function handleReply(commentId: string) {
+    setCollapsedReplies((current) =>
+      current[commentId]
+        ? { ...current, [commentId]: false }
+        : current
+    );
+    setReplyingTo((current) => (current === commentId ? null : commentId));
+  }
+
+  function toggleReplies(commentId: string) {
+    setCollapsedReplies((current) => ({
+      ...current,
+      [commentId]: !current[commentId],
+    }));
+  }
+
   return (
     <div className="feed-shell">
-      <FeedTopBar mode="post" />
+      <FeedTopBar mode="post" currentUser={currentUser} />
 
       <div className="feed-container">
         <FeedSidebar
@@ -846,25 +1300,89 @@ export default function PostPageShell({
 
                 <span style={{ fontSize: 12, color: "#464442" }}>
                   u/{post.author.displayName || post.author.username} ·{" "}
-                  {timeAgo(post.createdAt)}
+                  {timeAgo(post.createdAt, nowMs)}
                 </span>
               </div>
 
-              <h1 className="detail-title">{post.title}</h1>
-
-              {post.body ? (
-                <p
-                  style={{
-                    fontSize: 15,
-                    lineHeight: 1.78,
-                    color: "#8a8682",
-                    marginBottom: 22,
-                    whiteSpace: "pre-wrap",
+              {editingPost ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void handlePostSave();
                   }}
                 >
-                  {post.body}
-                </p>
-              ) : null}
+                  <p
+                    style={{
+                      fontSize: 12,
+                      color: "#6a6764",
+                      marginBottom: 10,
+                    }}
+                  >
+                    Add an update to this post. The original post text will stay unchanged.
+                  </p>
+
+                  <textarea
+                    value={postBody}
+                    onChange={(e) => setPostBody(e.target.value)}
+                    style={{
+                      width: "100%",
+                      background: "#111010",
+                      border: "1px solid #252424",
+                      borderRadius: 8,
+                      padding: "11px 14px",
+                      color: "#b8b4ac",
+                      fontFamily: "var(--font-outfit), sans-serif",
+                      fontSize: 15,
+                      lineHeight: 1.78,
+                      resize: "vertical",
+                      minHeight: 120,
+                      outline: "none",
+                      marginBottom: 12,
+                    }}
+                  />
+
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginBottom: 22,
+                    }}
+                  >
+                    <button
+                      className="act"
+                      type="button"
+                      onClick={() => {
+                        setPostBody("");
+                        setEditingPost(false);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button className="act" type="submit" disabled={postPending}>
+                      {postPending ? "Posting..." : "Post update"}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  <h1 className="detail-title">{post.title}</h1>
+
+                  {post.body ? (
+                    <p
+                      style={{
+                        fontSize: 15,
+                        lineHeight: 1.78,
+                        color: "#8a8682",
+                        marginBottom: 22,
+                        whiteSpace: "pre-wrap",
+                      }}
+                    >
+                      {post.body}
+                    </p>
+                  ) : null}
+                </>
+              )}
 
               <div
                 style={{
@@ -904,6 +1422,27 @@ export default function PostPageShell({
 >
   {copied ? "✓ Copied" : "↗ Share"}
 </button>
+                {post.isOwner && !editingPost ? (
+                  <button
+                    className="act"
+                    type="button"
+                    onClick={() => {
+                      setPostBody("");
+                      setEditingPost(true);
+                    }}
+                  >
+                    Add update
+                  </button>
+                ) : null}
+                {post.isOwner && !editingPost ? (
+                  <button
+                    className="act"
+                    type="button"
+                    onClick={() => void handlePostDelete()}
+                  >
+                    Delete
+                  </button>
+                ) : null}
                 <button className="act" type="button">
                   ☆ Save
                 </button>
@@ -977,168 +1516,25 @@ export default function PostPageShell({
 
             {post.comments.length > 0 ? (
               <div>
-                {visibleComments.map((comment) => {
-                  const hasReplies = comment.replies.length > 0;
-                  const repliesCollapsed = collapsedReplies[comment.id] ?? false;
-                  const showReplyThread =
-                    replyingTo === comment.id || (!repliesCollapsed && hasReplies);
-                  const replyToggleLabel = repliesCollapsed
-                    ? `show ${comment.replies.length} ${comment.replies.length === 1 ? "reply" : "replies"}`
-                    : "hide replies";
-
-                  return (
-                    <div
-                      key={comment.id}
-                      className="cmt-wrap"
-                      style={{ marginTop: 14 }}
-                    >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 7,
-                        marginBottom: 6,
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: 12.5,
-                          fontWeight: 600,
-                          color: "#b0aba4",
-                        }}
-                      >
-                        {comment.author.displayName || comment.author.username}
-                      </span>
-                      <span style={{ fontSize: 11, color: "#383635" }}>
-                        {timeAgo(comment.createdAt)}
-                      </span>
-                    </div>
-
-                    <p
-                      style={{
-                        fontSize: 13.5,
-                        lineHeight: 1.67,
-                        color: "#9c9892",
-                        marginBottom: 7,
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      {comment.body}
-                    </p>
-
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 0,
-                      }}
-                    >
-                      <CommentVotes
-                        commentId={comment.id}
-                        n={comment.score}
-                        initialVote={comment.userVote}
-                      />
-                      <button
-                        className="act"
-                        style={{ fontSize: 11.5, marginLeft: 4 }}
-                        type="button"
-                        onClick={() => {
-                          setCollapsedReplies((current) =>
-                            current[comment.id]
-                              ? { ...current, [comment.id]: false }
-                              : current
-                          );
-                          setReplyingTo((current) =>
-                            current === comment.id ? null : comment.id
-                          );
-                        }}
-                      >
-                        ↩ Reply
-                      </button>
-                      {hasReplies ? (
-                        <button
-                          className="act"
-                          style={{ fontSize: 11.5 }}
-                          type="button"
-                          onClick={() =>
-                            setCollapsedReplies((current) => ({
-                              ...current,
-                              [comment.id]: !current[comment.id],
-                            }))
-                          }
-                        >
-                          {replyToggleLabel}
-                        </button>
-                      ) : null}
-                      <button className="act" style={{ fontSize: 11.5 }} type="button">
-                        Share
-                      </button>
-                    </div>
-
-                    {showReplyThread ? (
-                      <div
-                        style={{
-                          marginTop: 12,
-                          marginLeft: 16,
-                          paddingLeft: 16,
-                          borderLeft: "1px solid #1e1e1e",
-                        }}
-                      >
-                        {replyingTo === comment.id ? (
-                          <ReplyComposer
-                            postId={post.id}
-                            parentId={comment.id}
-                            onCancel={() => setReplyingTo(null)}
-                          />
-                        ) : null}
-
-                        {comment.replies.map((reply, index) => (
-                          <div
-                            key={reply.id}
-                            style={{
-                              marginTop:
-                                replyingTo === comment.id || index > 0 ? 12 : 0,
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 7,
-                                marginBottom: 6,
-                              }}
-                            >
-                              <span
-                                style={{
-                                  fontSize: 12,
-                                  fontWeight: 600,
-                                  color: "#b0aba4",
-                                }}
-                              >
-                                {reply.author.displayName || reply.author.username}
-                              </span>
-                              <span style={{ fontSize: 10.5, color: "#383635" }}>
-                                {timeAgo(reply.createdAt)}
-                              </span>
-                            </div>
-
-                            <p
-                              style={{
-                                fontSize: 12.5,
-                                lineHeight: 1.65,
-                                color: "#9c9892",
-                                whiteSpace: "pre-wrap",
-                              }}
-                            >
-                              {reply.body}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
+                {visibleComments.map((comment) => (
+                  <div
+                    key={comment.id}
+                    className="cmt-wrap"
+                    style={{ marginTop: 14 }}
+                  >
+                    <CommentNode
+                      comment={comment}
+                      postId={post.id}
+                      nowMs={nowMs}
+                      initialNowMs={initialNowMs}
+                      replyingTo={replyingTo}
+                      collapsedReplies={collapsedReplies}
+                      onReply={handleReply}
+                      onCancelReply={() => setReplyingTo(null)}
+                      onToggleReplies={toggleReplies}
+                    />
                   </div>
-                  );
-                })}
+                ))}
 
                 {hasMoreComments ? (
                   <button

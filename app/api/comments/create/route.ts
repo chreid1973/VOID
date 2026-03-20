@@ -54,22 +54,33 @@ export async function POST(req: Request) {
     }
   }
 
-  await prisma.comment.create({
-    data: {
-      body: trimmedBody,
-      postId: trimmedPostId,
-      authorId: user.id,
-      parentId: trimmedParentId,
-    },
-  });
-
-  await prisma.post.update({
-    where: { id: trimmedPostId },
-    data: {
-      commentCount: {
-        increment: 1,
+  await prisma.$transaction(async (tx) => {
+    const comment = await tx.comment.create({
+      data: {
+        body: trimmedBody,
+        postId: trimmedPostId,
+        authorId: user.id,
+        parentId: trimmedParentId,
+        score: 1,
       },
-    },
+    });
+
+    await tx.vote.create({
+      data: {
+        userId: user.id,
+        commentId: comment.id,
+        value: 1,
+      },
+    });
+
+    await tx.post.update({
+      where: { id: trimmedPostId },
+      data: {
+        commentCount: {
+          increment: 1,
+        },
+      },
+    });
   });
 
   return NextResponse.json({ ok: true });

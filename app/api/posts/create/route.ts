@@ -36,13 +36,30 @@ export async function POST(req: Request) {
     });
   }
 
-  const post = await prisma.post.create({
-    data: {
-      title: title.trim(),
-      body: body?.trim() || null,
-      communityId,
-      authorId: user.id,
-    },
+  const trimmedTitle = title.trim();
+  const trimmedBody = body?.trim() || null;
+  const trimmedCommunityId = communityId.trim();
+
+  const post = await prisma.$transaction(async (tx) => {
+    const createdPost = await tx.post.create({
+      data: {
+        title: trimmedTitle,
+        body: trimmedBody,
+        communityId: trimmedCommunityId,
+        authorId: user.id,
+        score: 1,
+      },
+    });
+
+    await tx.vote.create({
+      data: {
+        userId: user.id,
+        postId: createdPost.id,
+        value: 1,
+      },
+    });
+
+    return createdPost;
   });
 
   return NextResponse.json({ ok: true, postId: post.id });

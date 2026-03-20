@@ -21,15 +21,22 @@ type CommunityBadgeProps = {
   href?: string;
 };
 
+type TopBarCurrentUser = {
+  username: string;
+  displayName: string | null;
+};
+
 type FeedTopBarProps =
   | {
       mode: "feed";
       q: string;
       setQ: React.Dispatch<React.SetStateAction<string>>;
       setSel: React.Dispatch<React.SetStateAction<string | null>>;
+      currentUser: TopBarCurrentUser | null;
     }
   | {
       mode: "post";
+      currentUser: TopBarCurrentUser | null;
     };
 
 type FeedSidebarProps =
@@ -230,7 +237,32 @@ export function FeedTopBar(props: FeedTopBarProps) {
       </div>
 
       <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-        {props.mode === "feed" ? (
+        {props.currentUser ? (
+          <Link
+            href={`/u/${encodeURIComponent(props.currentUser.username)}`}
+            style={{
+              background: "none",
+              border: "1px solid #252424",
+              borderRadius: 8,
+              color: "#d8d2ca",
+              fontFamily: "var(--font-outfit), sans-serif",
+              fontSize: 12.5,
+              fontWeight: 600,
+              padding: "6px 14px",
+              cursor: "pointer",
+              transition: "all .15s",
+              letterSpacing: ".02em",
+              textDecoration: "none",
+            }}
+            title={
+              props.currentUser.displayName
+                ? `${props.currentUser.displayName} · u/${props.currentUser.username}`
+                : `u/${props.currentUser.username}`
+            }
+          >
+            u/{props.currentUser.username}
+          </Link>
+        ) : props.mode === "feed" ? (
           <>
             <button
               style={{

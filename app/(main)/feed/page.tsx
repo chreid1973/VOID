@@ -121,6 +121,14 @@ export default async function FeedPage({
       initialPosts={formattedPosts}
       communities={formattedCommunities}
       initialSelectedCommunity={initialSelectedCommunity}
+      currentUser={
+        user
+          ? {
+              username: user.username,
+              displayName: user.displayName,
+            }
+          : null
+      }
     />
   );
 }

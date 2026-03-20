@@ -33,6 +33,10 @@ type FeedClientProps = {
   initialPosts: FeedPost[];
   communities: FeedCommunity[];
   initialSelectedCommunity: string | null;
+  currentUser: {
+    username: string;
+    displayName: string | null;
+  } | null;
 };
 
 const fmt = (n: number) => {
@@ -469,6 +473,7 @@ export default function FeedClient({
   initialPosts,
   communities,
   initialSelectedCommunity,
+  currentUser,
 }: FeedClientProps) {
   const [sel, setSel] = useState<string | null>(initialSelectedCommunity);
   const [q, setQ] = useState("");
@@ -493,7 +498,13 @@ export default function FeedClient({
 
   return (
     <div className="feed-shell">
-      <FeedTopBar mode="feed" q={q} setQ={setQ} setSel={setSel} />
+      <FeedTopBar
+        mode="feed"
+        q={q}
+        setQ={setQ}
+        setSel={setSel}
+        currentUser={currentUser}
+      />
 
       <div className="feed-container">
         <FeedSidebar mode="feed" sel={sel} setSel={setSel} communities={communities} />
