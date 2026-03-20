@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import "../app/(main)/feed/feed.css";
 import { ActionNotice, type ActionNoticeState } from "./ActionNotice";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
+import ReportAction from "./ReportAction";
 
 type FeedPost = {
   id: string;
@@ -210,12 +211,16 @@ function PostCard({
   p,
   idx,
   communities,
+  canReport,
   onVoteError,
+  onActionNotice,
 }: {
   p: FeedPost;
   idx: number;
   communities: FeedCommunity[];
+  canReport: boolean;
   onVoteError: (message: string) => void;
+  onActionNotice: (notice: ActionNoticeState) => void;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -373,6 +378,13 @@ function PostCard({
             >
               {copied ? "✓ Copied" : "↗ Share"}
             </button>
+            {canReport ? (
+              <ReportAction
+                targetType="POST"
+                targetId={p.id}
+                onNotice={onActionNotice}
+              />
+            ) : null}
             <button className="act">☆ Save</button>
             <button className="act">⋯</button>
           </div>
@@ -868,9 +880,11 @@ export default function FeedClient({
                   p={p}
                   idx={i}
                   communities={communities}
+                  canReport={Boolean(currentUser)}
                   onVoteError={(message) =>
                     setActionNotice({ tone: "error", message })
                   }
+                  onActionNotice={setActionNotice}
                 />
               ))}
 

@@ -195,6 +195,10 @@ export default async function FeedPage({
 
   const whereClauses: Prisma.PostWhereInput[] = [];
 
+  whereClauses.push({
+    isHidden: false,
+  });
+
   if (initialSelectedCommunity) {
     whereClauses.push({
       community: {
@@ -293,6 +297,7 @@ export default async function FeedPage({
                 in: rankedPostIds,
               },
               isDeleted: false,
+              isHidden: false,
               parentId: null,
             },
             _count: {
@@ -306,6 +311,7 @@ export default async function FeedPage({
                 in: rankedPostIds,
               },
               isDeleted: false,
+              isHidden: false,
               parentId: {
                 not: null,
               },

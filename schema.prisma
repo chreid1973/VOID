@@ -20,16 +20,19 @@ model User {
   displayName  String?
   bio          String?
   avatarUrl    String?
+  isAdmin      Boolean   @default(false)
   karmaPost    Int       @default(0)
   karmaComment Int       @default(0)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  posts       Post[]
-  comments    Comment[]
-  votes       Vote[]
-  postSaves   SavedPost[]
-  memberships CommunityMember[]
+  posts           Post[]
+  comments        Comment[]
+  votes           Vote[]
+  postSaves       SavedPost[]
+  memberships     CommunityMember[]
+  reportsFiled    Report[] @relation("ReportsFiled")
+  reportsResolved Report[] @relation("ReportsResolved")
 
   @@index([clerkId])
   @@index([username])
@@ -84,6 +87,7 @@ model Post {
   commentCount Int      @default(0)
   isNSFW       Boolean  @default(false)
   isLocked     Boolean  @default(false)
+  isHidden     Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -95,10 +99,12 @@ model Post {
   comments  Comment[]
   votes     Vote[]
   saves     SavedPost[]
+  reports   Report[]
 
   @@index([communityId, createdAt(sort: Desc)])
   @@index([score(sort: Desc)])
   @@index([authorId])
+  @@index([isHidden])
 }
 
 enum PostType {
@@ -111,6 +117,7 @@ model Comment {
   id        String   @id @default(cuid())
   body      String
   score     Int      @default(0)
+  isHidden  Boolean  @default(false)
   isDeleted Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -124,10 +131,12 @@ model Comment {
   parent  Comment?  @relation("Replies", fields: [parentId], references: [id])
   replies Comment[] @relation("Replies")
   votes   Vote[]
+  reports Report[]
 
   @@index([postId, createdAt])
   @@index([parentId])
   @@index([authorId])
+  @@index([isHidden])
 }
 
 model Vote {
@@ -159,4 +168,48 @@ model SavedPost {
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@unique([userId, postId])
+}
+
+model Report {
+  id          String           @id @default(cuid())
+  targetType  ReportTargetType
+  reason      ReportReason
+  note        String?
+  status      ReportStatus     @default(OPEN)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  resolvedAt  DateTime?
+  reporterId  String
+  resolvedById String?
+  postId      String?
+  commentId   String?
+
+  reporter   User     @relation("ReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolvedBy User?    @relation("ReportsResolved", fields: [resolvedById], references: [id], onDelete: SetNull)
+  post       Post?    @relation(fields: [postId], references: [id], onDelete: SetNull)
+  comment    Comment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([reporterId, status])
+  @@index([postId])
+  @@index([commentId])
+}
+
+enum ReportTargetType {
+  POST
+  COMMENT
+}
+
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  ILLEGAL
+  IMPERSONATION
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
 }

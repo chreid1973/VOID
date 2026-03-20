@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getCurrentUser } from "../../../../auth";
+import { getCurrentUser, isAdminUser } from "../../../../auth";
 import { prisma } from "../../../../lib/prisma";
 import PostPageShell from "../../../../components/PostPageShell";
 import { resolveStoredImageUrl } from "../../../../r2";
@@ -35,6 +35,7 @@ type LoadedComment = {
   body: string;
   score: number;
   userVote: 1 | -1 | null;
+  isHidden: boolean;
   isDeleted: boolean;
   isOwner: boolean;
   createdAt: string;
@@ -77,6 +78,7 @@ export default async function PostPage({
 }) {
   const renderedAt = new Date().toISOString();
   const user = await getCurrentUser();
+  const isAdmin = isAdminUser(user);
   const [post, comments, communities, railPosts] = await Promise.all([
     prisma.post.findUnique({
       where: { id: params.id },
@@ -132,6 +134,9 @@ export default async function PostPage({
     }),
 
     prisma.post.findMany({
+      where: {
+        isHidden: false,
+      },
       orderBy: { createdAt: "desc" },
       take: 5,
       include: {
@@ -148,6 +153,7 @@ export default async function PostPage({
   ]);
 
   if (!post) return notFound();
+  if (post.isHidden && !isAdmin) return notFound();
   const [postVote, commentVotes] = user
     ? await Promise.all([
         prisma.vote.findUnique({
@@ -207,6 +213,7 @@ export default async function PostPage({
         body: comment.body,
         score: comment.score,
         userVote: formatUserVote(commentVoteMap.get(comment.id)),
+        isHidden: comment.isHidden,
         isDeleted: comment.isDeleted,
         isOwner: user?.id === comment.authorId,
         createdAt: comment.createdAt.toISOString(),

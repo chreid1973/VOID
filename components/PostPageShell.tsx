@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import "../app/(main)/feed/feed.css";
 import { ActionNotice, type ActionNoticeState } from "./ActionNotice";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
+import ReportAction from "./ReportAction";
 
 type CommunityItem = {
   id: string;
@@ -34,6 +35,7 @@ type PostComment = {
   body: string;
   score: number;
   userVote: 1 | -1 | null;
+  isHidden: boolean;
   isDeleted: boolean;
   isOwner: boolean;
   createdAt: string;
@@ -841,6 +843,7 @@ function CommentNode({
   replyingTo,
   collapsedReplies,
   highlightedCommentId,
+  canReport,
   onReply,
   onCancelReply,
   onToggleReplies,
@@ -854,6 +857,7 @@ function CommentNode({
   replyingTo: string | null;
   collapsedReplies: Record<string, boolean>;
   highlightedCommentId: string | null;
+  canReport: boolean;
   onReply: (commentId: string) => void;
   onCancelReply: () => void;
   onToggleReplies: (commentId: string) => void;
@@ -875,6 +879,7 @@ function CommentNode({
   const showReplyThread = isReplying || (!repliesCollapsed && hasReplies);
   const canEdit =
     comment.isOwner &&
+    !comment.isHidden &&
     !comment.isDeleted &&
     !editWindowExpired &&
     isCommentEditable(comment.createdAt, nowMs);
@@ -1131,7 +1136,11 @@ function CommentNode({
               whiteSpace: "pre-wrap",
             }}
           >
-            {comment.isDeleted ? "[deleted]" : comment.body}
+            {comment.isDeleted
+              ? "[deleted]"
+              : comment.isHidden
+                ? "[removed by moderators]"
+                : comment.body}
           </p>
 
           <div
@@ -1141,7 +1150,7 @@ function CommentNode({
               gap: 0,
             }}
           >
-            {!comment.isDeleted ? (
+            {!comment.isDeleted && !comment.isHidden ? (
               <CommentVotes
                 commentId={comment.id}
                 n={comment.score}
@@ -1151,7 +1160,7 @@ function CommentNode({
                 }
               />
             ) : null}
-            {!comment.isDeleted ? (
+            {!comment.isDeleted && !comment.isHidden ? (
               <button
                 className="act"
                 style={{ fontSize: 11.5, marginLeft: 4 }}
@@ -1171,17 +1180,27 @@ function CommentNode({
                 {replyToggleLabel}
               </button>
             ) : null}
-            {!comment.isDeleted ? (
-              <button
-                className="act"
-                style={{ fontSize: 11.5 }}
-                type="button"
-                onClick={() => void handleShare()}
-              >
-                {copied ? "✓ Copied" : "Share"}
-              </button>
+            {!comment.isDeleted && !comment.isHidden ? (
+              <>
+                <button
+                  className="act"
+                  style={{ fontSize: 11.5 }}
+                  type="button"
+                  onClick={() => void handleShare()}
+                >
+                  {copied ? "✓ Copied" : "Share"}
+                </button>
+                {canReport ? (
+                  <ReportAction
+                    targetType="COMMENT"
+                    targetId={comment.id}
+                    onNotice={onActionNotice}
+                    style={{ fontSize: 11.5 }}
+                  />
+                ) : null}
+              </>
             ) : null}
-            {comment.isOwner && !comment.isDeleted && canEdit ? (
+            {comment.isOwner && !comment.isDeleted && !comment.isHidden && canEdit ? (
               <button
                 className="act"
                 style={{ fontSize: 11.5 }}
@@ -1195,7 +1214,7 @@ function CommentNode({
                 Edit
               </button>
             ) : null}
-            {comment.isOwner && !comment.isDeleted ? (
+            {comment.isOwner && !comment.isDeleted && !comment.isHidden ? (
               <button
                 className="act"
                 style={{ fontSize: 11.5 }}
@@ -1242,6 +1261,7 @@ function CommentNode({
                 replyingTo={replyingTo}
                 collapsedReplies={collapsedReplies}
                 highlightedCommentId={highlightedCommentId}
+                canReport={canReport}
                 onReply={onReply}
                 onCancelReply={onCancelReply}
                 onToggleReplies={onToggleReplies}
@@ -1748,6 +1768,13 @@ export default function PostPageShell({
 >
   {copied ? "✓ Copied" : "↗ Share"}
 </button>
+                {currentUser ? (
+                  <ReportAction
+                    targetType="POST"
+                    targetId={post.id}
+                    onNotice={setActionNotice}
+                  />
+                ) : null}
                 {post.isOwner && !editingPost ? (
                   <button
                     className="act"
@@ -1856,6 +1883,7 @@ export default function PostPageShell({
                       replyingTo={replyingTo}
                       collapsedReplies={collapsedReplies}
                       highlightedCommentId={highlightedCommentId}
+                      canReport={Boolean(currentUser)}
                       onReply={handleReply}
                       onCancelReply={() => setReplyingTo(null)}
                       onToggleReplies={toggleReplies}

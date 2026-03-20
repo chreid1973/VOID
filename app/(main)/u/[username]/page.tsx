@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCurrentUser } from "../../../../auth";
+import { getCurrentUser, isAdminUser } from "../../../../auth";
 import ProfileEditor from "../../../../components/ProfileEditor";
 import { prisma } from "../../../../lib/prisma";
 import { resolveStoredImageUrl } from "../../../../r2";
@@ -108,13 +108,17 @@ export default async function UserProfilePage({
   if (!user) return notFound();
 
   const isOwner = currentUser?.id === user.id;
+  const canSeeHiddenContent = isAdminUser(currentUser);
   const avatarUrl = user.avatarUrl
     ? resolveStoredImageUrl(user.avatarUrl)
     : null;
   const profileLabel = user.displayName || user.username;
-  const [posts, comments, visibleCommentCount] = await Promise.all([
+  const [posts, comments, visiblePostCount, visibleCommentCount] = await Promise.all([
     prisma.post.findMany({
-      where: { authorId: user.id },
+      where: {
+        authorId: user.id,
+        ...(canSeeHiddenContent ? {} : { isHidden: false }),
+      },
       take: PAGE_SIZE,
       skip: (postsPage - 1) * PAGE_SIZE,
       orderBy: { createdAt: "desc" },
@@ -135,6 +139,7 @@ export default async function UserProfilePage({
       where: {
         authorId: user.id,
         isDeleted: false,
+        ...(canSeeHiddenContent ? {} : { isHidden: false }),
       },
       take: PAGE_SIZE,
       skip: (commentsPage - 1) * PAGE_SIZE,
@@ -151,16 +156,23 @@ export default async function UserProfilePage({
         },
       },
     }),
+    prisma.post.count({
+      where: {
+        authorId: user.id,
+        ...(canSeeHiddenContent ? {} : { isHidden: false }),
+      },
+    }),
     prisma.comment.count({
       where: {
         authorId: user.id,
         isDeleted: false,
+        ...(canSeeHiddenContent ? {} : { isHidden: false }),
       },
     }),
   ]);
   const postsHasPreviousPage = postsPage > 1;
   const commentsHasPreviousPage = commentsPage > 1;
-  const postsHasNextPage = user._count.posts > postsPage * PAGE_SIZE;
+  const postsHasNextPage = visiblePostCount > postsPage * PAGE_SIZE;
   const commentsHasNextPage = visibleCommentCount > commentsPage * PAGE_SIZE;
 
   return (
@@ -297,7 +309,7 @@ export default async function UserProfilePage({
                 }}
               >
                 {[
-                  { label: "Posts", value: user._count.posts },
+                  { label: "Posts", value: visiblePostCount },
                   { label: "Comments", value: visibleCommentCount },
                 ].map((item) => (
                   <div
@@ -388,7 +400,7 @@ export default async function UserProfilePage({
                 {
                   key: "posts" as const,
                   label: "Posts",
-                  count: user._count.posts,
+                  count: visiblePostCount,
                 },
                 {
                   key: "comments" as const,

@@ -15,3 +15,30 @@ export async function requireUser() {
   if (!user) throw new Error("UNAUTHORIZED");
   return user;
 }
+
+export function isAdminUser(
+  user: {
+    username: string;
+    isAdmin: boolean;
+  } | null | undefined
+) {
+  if (!user) return false;
+  if (user.isAdmin) return true;
+
+  const configuredAdmins =
+    process.env.ADMIN_USERNAMES?.split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean) ?? [];
+
+  return configuredAdmins.includes(user.username.toLowerCase());
+}
+
+export async function requireAdminUser() {
+  const user = await requireUser();
+
+  if (!isAdminUser(user)) {
+    throw new Error("FORBIDDEN");
+  }
+
+  return user;
+}
