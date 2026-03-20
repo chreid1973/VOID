@@ -9,6 +9,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 export const r2 = new S3Client({
   region: "auto",
   endpoint: `https://${process.env.CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  forcePathStyle: true,
   credentials: {
     accessKeyId:     process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,
     secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,
@@ -24,7 +25,7 @@ const BUCKET = process.env.CLOUDFLARE_R2_BUCKET_NAME!;
 export async function getUploadUrl(
   key: string,          // e.g. "posts/clxyz123.webp"
   contentType: string,  // e.g. "image/webp"
-  expiresIn = 120       // URL expires in 2 minutes
+  expiresIn = 60        // URL expires in 1 minute
 ) {
   const command = new PutObjectCommand({
     Bucket:      BUCKET,
@@ -32,8 +33,8 @@ export async function getUploadUrl(
     ContentType: contentType,
   });
 
-  const url = await getSignedUrl(r2, command, { expiresIn });
-  return { uploadUrl: url, key };
+  const uploadUrl = await getSignedUrl(r2, command, { expiresIn });
+  return { uploadUrl, key, publicUrl: getPublicUrl(key) };
 }
 
 // ── Delete an object ───────────────────────────────────────────
@@ -46,4 +47,8 @@ export async function deleteObject(key: string) {
 
 export function getPublicUrl(key: string): string {
   return `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${key}`;
+}
+
+export function resolveStoredImageUrl(imageRef: string): string {
+  return /^https?:\/\//i.test(imageRef) ? imageRef : getPublicUrl(imageRef);
 }

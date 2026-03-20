@@ -1,6 +1,7 @@
 import FeedClient from "../../../components/FeedClient";
 import { getCurrentUser } from "../../../auth";
 import { prisma } from "../../../lib/prisma";
+import { resolveStoredImageUrl } from "../../../r2";
 
 function timeAgo(date: Date) {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -97,6 +98,8 @@ export default async function FeedPage({
     community: post.community.name,
     title: post.title,
     body: post.body ?? "",
+    url: post.url,
+    imageUrl: post.imageKey ? resolveStoredImageUrl(post.imageKey) : null,
     author: post.author.displayName || post.author.username,
     votes: post.score ?? 0,
     comments: post.commentCount ?? 0,

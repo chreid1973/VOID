@@ -48,6 +48,8 @@ type PostData = {
   id: string;
   title: string;
   body: string | null;
+  url: string | null;
+  imageUrl: string | null;
   createdAt: string;
   score: number;
   userVote: 1 | -1 | null;
@@ -69,6 +71,16 @@ type PostData = {
 function fmt(n: number) {
   if (!Number.isFinite(n)) return "0";
   return n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n);
+}
+
+function linkHost(value: string | null | undefined) {
+  if (!value) return null;
+
+  try {
+    return new URL(value).hostname.replace(/^www\./i, "");
+  } catch {
+    return value;
+  }
 }
 
 function voteDirection(value: 1 | -1 | null | undefined) {
@@ -1380,6 +1392,44 @@ export default function PostPageShell({
                     >
                       {post.body}
                     </p>
+                  ) : null}
+
+                  {post.url ? (
+                    <a
+                      href={post.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        marginBottom: 22,
+                        color: "#8a8682",
+                        fontSize: 13,
+                        lineHeight: 1.5,
+                        textDecoration: "none",
+                      }}
+                    >
+                      <span>↗</span>
+                      <span>{linkHost(post.url)}</span>
+                    </a>
+                  ) : null}
+
+                  {post.imageUrl ? (
+                    <img
+                      src={post.imageUrl}
+                      alt={post.title}
+                      style={{
+                        width: "100%",
+                        maxHeight: 640,
+                        objectFit: "cover",
+                        display: "block",
+                        borderRadius: 16,
+                        border: "1px solid #1f1f1f",
+                        background: "#111010",
+                        marginBottom: 22,
+                      }}
+                    />
                   ) : null}
                 </>
               )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Community = {
@@ -9,23 +9,242 @@ type Community = {
   displayName: string;
 };
 
+type LinkPreview = {
+  url: string;
+  host: string;
+  title: string | null;
+  description: string | null;
+  imageUrl: string | null;
+  resolvedTitle: string;
+  resolvedDescription: string | null;
+  hasMetadata: boolean;
+};
+
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+];
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
+function formatFileSize(bytes: number) {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} B`;
+}
+
+function getUploadCorsErrorMessage() {
+  if (typeof window === "undefined") {
+    return "Direct image upload was blocked by Cloudflare R2 CORS.";
+  }
+
+  return `Direct image upload was blocked by Cloudflare R2 CORS. Allow ${window.location.origin} to PUT with Content-Type on the bucket, then try again.`;
+}
+
 export default function SubmitForm({
   communities,
 }: {
   communities: Community[];
 }) {
   const router = useRouter();
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [url, setUrl] = useState("");
   const [communityId, setCommunityId] = useState(communities[0]?.id || "");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
+  const [previewSourceUrl, setPreviewSourceUrl] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewMessage, setPreviewMessage] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [includeLinkPreviewDescription, setIncludeLinkPreviewDescription] =
+    useState(false);
+  const [includeLinkPreviewImage, setIncludeLinkPreviewImage] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  async function uploadImage(file: File) {
+    const setupRes = await fetch("/api/upload", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contentType: file.type,
+        size: file.size,
+        context: "post",
+      }),
+    });
+
+    const setupData = await setupRes.json().catch(() => null);
+
+    if (!setupRes.ok || !setupData?.uploadUrl || !setupData?.publicUrl) {
+      throw new Error(
+        setupRes.status === 401
+          ? "Sign in to upload an image."
+          : setupData?.error?.formErrors?.[0] ||
+              setupData?.error?.fieldErrors?.contentType?.[0] ||
+              setupData?.error?.fieldErrors?.size?.[0] ||
+              setupData?.error ||
+              "Failed to prepare image upload."
+      );
+    }
+
+    let uploadRes: Response;
+
+    try {
+      uploadRes = await fetch(setupData.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type,
+        },
+        body: file,
+      });
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error(getUploadCorsErrorMessage());
+      }
+
+      throw error;
+    }
+
+    if (!uploadRes.ok) {
+      throw new Error("Image upload failed. Please try again.");
+    }
+
+    return setupData.publicUrl as string;
+  }
+
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setSubmitError(null);
+
+    if (!file) {
+      setImageFile(null);
+      return;
+    }
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setImageFile(null);
+      e.target.value = "";
+      setSubmitError("Only JPEG, PNG, WebP, and GIF images are allowed.");
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setImageFile(null);
+      e.target.value = "";
+      setSubmitError("Image must be under 5MB.");
+      return;
+    }
+
+    setImageFile(file);
+  }
+
+  function clearImage() {
+    setImageFile(null);
+    setSubmitError(null);
+    if (imageInputRef.current) {
+      imageInputRef.current.value = "";
+    }
+  }
+
+  async function fetchLinkPreview(urlValue: string) {
+    const trimmedUrl = urlValue.trim();
+
+    if (!trimmedUrl) {
+      setLinkPreview(null);
+      setPreviewSourceUrl("");
+      setPreviewError(null);
+      setPreviewMessage(null);
+      setIncludeLinkPreviewDescription(false);
+      setIncludeLinkPreviewImage(false);
+      return null;
+    }
+
+    setPreviewLoading(true);
+    setPreviewError(null);
+    setPreviewMessage(null);
+
+    try {
+      const res = await fetch("/api/link-preview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ url: trimmedUrl }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        const message =
+          res.status === 401
+            ? "Sign in to preview a link."
+            : data?.error || "Failed to preview link.";
+
+        setLinkPreview(null);
+        setPreviewSourceUrl("");
+        setPreviewError(message);
+        return null;
+      }
+
+      setLinkPreview(data);
+      setPreviewSourceUrl(trimmedUrl);
+      setIncludeLinkPreviewDescription(Boolean(data.description && !body.trim()));
+      setIncludeLinkPreviewImage(Boolean(data.imageUrl));
+      return data as LinkPreview;
+    } catch {
+      setLinkPreview(null);
+      setPreviewSourceUrl("");
+      setPreviewError("Something went wrong while previewing the link.");
+      setIncludeLinkPreviewDescription(false);
+      setIncludeLinkPreviewImage(false);
+      return null;
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
+
+    if (url.trim() && imageFile) {
+      setSubmitError("Choose either one image or one link for now.");
+      return;
+    }
+
+    if (!title.trim() && !url.trim()) {
+      setSubmitError("Add a title or a link.");
+      return;
+    }
+
+    const needsLinkPreview =
+      url.trim() &&
+      !title.trim() &&
+      previewSourceUrl !== url.trim();
+
+    if (needsLinkPreview) {
+      const preview = await fetchLinkPreview(url);
+
+      if (preview) {
+        setPreviewMessage(
+          "Link preview loaded below. Review the resolved title, then submit again."
+        );
+      }
+
+      return;
+    }
+
     setLoading(true);
+    setSubmitError(null);
 
     try {
+      const uploadedImageUrl = imageFile ? await uploadImage(imageFile) : null;
       const res = await fetch("/api/posts/create", {
         method: "POST",
         headers: {
@@ -34,21 +253,29 @@ export default function SubmitForm({
         body: JSON.stringify({
           title,
           body,
+          url,
           communityId,
+          imageKey: uploadedImageUrl,
+          includeLinkPreviewDescription,
+          includeLinkPreviewImage,
         }),
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        alert(data?.error || "Failed to create post");
-        setLoading(false);
+        setSubmitError(data?.error || "Failed to create post.");
         return;
       }
 
       router.push("/feed");
       router.refresh();
-    } catch {
-      alert("Something went wrong while creating the post.");
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong while creating the post."
+      );
+    } finally {
       setLoading(false);
     }
   }
@@ -85,7 +312,10 @@ export default function SubmitForm({
         <label style={labelStyle}>Community</label>
         <select
           value={communityId}
-          onChange={(e) => setCommunityId(e.target.value)}
+          onChange={(e) => {
+            setCommunityId(e.target.value);
+            if (submitError) setSubmitError(null);
+          }}
           style={inputStyle}
           required
         >
@@ -101,13 +331,245 @@ export default function SubmitForm({
         <label style={labelStyle}>Title</label>
         <input
           type="text"
-          placeholder="Give your post a title"
+          placeholder="Give your post a title or leave it blank for a link post"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
+          onChange={(e) => {
+            setTitle(e.target.value);
+            if (previewMessage) setPreviewMessage(null);
+            if (submitError) setSubmitError(null);
+          }}
           style={inputStyle}
           maxLength={300}
         />
+      </div>
+
+      <div>
+        <label style={labelStyle}>Link</label>
+        <input
+          type="url"
+          placeholder="https://example.com/article"
+          value={url}
+          onChange={(e) => {
+            setUrl(e.target.value);
+            setLinkPreview(null);
+            setPreviewSourceUrl("");
+            setPreviewError(null);
+            setPreviewMessage(null);
+            setIncludeLinkPreviewDescription(false);
+            setIncludeLinkPreviewImage(false);
+            if (submitError) setSubmitError(null);
+          }}
+          onBlur={() => {
+            if (url.trim() && previewSourceUrl !== url.trim()) {
+              void fetchLinkPreview(url);
+            }
+          }}
+          style={inputStyle}
+        />
+
+        <p
+          style={{
+            fontSize: 12,
+            color: "#6f6963",
+            lineHeight: 1.5,
+            marginTop: 8,
+          }}
+        >
+          Optional. If you add a link, the server will try to pull a title, description, and preview image from the page.
+        </p>
+
+        {previewLoading ? (
+          <p
+            aria-live="polite"
+            style={{
+              fontSize: 12,
+              color: "#8b847c",
+              lineHeight: 1.5,
+              marginTop: 8,
+            }}
+          >
+            Checking link preview...
+          </p>
+        ) : null}
+
+        {previewMessage ? (
+          <p
+            aria-live="polite"
+            style={{
+              fontSize: 12,
+              color: "#8aa37f",
+              lineHeight: 1.5,
+              marginTop: 8,
+            }}
+          >
+            {previewMessage}
+          </p>
+        ) : null}
+
+        {previewError ? (
+          <p
+            aria-live="polite"
+            style={{
+              fontSize: 12,
+              color: "#ff8b72",
+              lineHeight: 1.5,
+              marginTop: 8,
+            }}
+          >
+            {previewError}
+          </p>
+        ) : null}
+
+        {linkPreview ? (
+          <div
+            style={{
+              marginTop: 10,
+              border: "1px solid #252424",
+              borderRadius: 10,
+              background: "#141313",
+              padding: "12px 14px",
+              display: "grid",
+              gap: 8,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11.5,
+                  letterSpacing: ".08em",
+                  textTransform: "uppercase",
+                  color: "#8b847c",
+                  fontWeight: 700,
+                }}
+              >
+                Link Preview
+              </span>
+              <span style={{ fontSize: 12, color: "#6f6963" }}>
+                ↗ {linkPreview.host}
+              </span>
+            </div>
+
+            {linkPreview.imageUrl ? (
+              <div
+                style={{
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  border: "1px solid #252424",
+                  background: "#111010",
+                }}
+              >
+                <img
+                  src={linkPreview.imageUrl}
+                  alt={title.trim() || linkPreview.resolvedTitle}
+                  style={{
+                    width: "100%",
+                    maxHeight: 220,
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            ) : null}
+
+            <div>
+              <p
+                style={{
+                  fontSize: 12,
+                  color: "#6f6963",
+                  marginBottom: 4,
+                }}
+              >
+                Resolved title
+              </p>
+              <p style={{ fontSize: 13.5, color: "#e6e1da", lineHeight: 1.5 }}>
+                {title.trim() || linkPreview.resolvedTitle}
+              </p>
+            </div>
+
+            <div>
+              <p
+                style={{
+                  fontSize: 12,
+                  color: "#6f6963",
+                  marginBottom: 4,
+                }}
+              >
+                {body.trim() ? "Post body" : "Detected page description"}
+              </p>
+              <p style={{ fontSize: 12.5, color: "#b8b4ac", lineHeight: 1.6 }}>
+                {body.trim() ||
+                  linkPreview.description ||
+                  "No page description detected. Your post will publish without a body unless you write one above."}
+              </p>
+            </div>
+
+            {linkPreview.description ? (
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 10,
+                  fontSize: 12.5,
+                  color: "#d7d1c9",
+                  lineHeight: 1.6,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={includeLinkPreviewDescription}
+                  onChange={(e) =>
+                    setIncludeLinkPreviewDescription(e.target.checked)
+                  }
+                  style={{ marginTop: 2 }}
+                />
+                <span>
+                  Include the detected description in the published post body
+                  {body.trim() ? " after your text." : "."}
+                </span>
+              </label>
+            ) : null}
+
+            {linkPreview.imageUrl ? (
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 10,
+                  fontSize: 12.5,
+                  color: "#d7d1c9",
+                  lineHeight: 1.6,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={includeLinkPreviewImage}
+                  onChange={(e) => setIncludeLinkPreviewImage(e.target.checked)}
+                  style={{ marginTop: 2 }}
+                />
+                <span>Include the detected preview image on the published post.</span>
+              </label>
+            ) : null}
+
+            <p style={{ fontSize: 12, color: "#8b847c", lineHeight: 1.5 }}>
+              {linkPreview.description && includeLinkPreviewDescription
+                ? body.trim()
+                  ? "Your typed body will publish first, followed by the detected description."
+                  : "The detected description will be saved as the post body."
+                : linkPreview.imageUrl && includeLinkPreviewImage
+                  ? "The detected preview image will be shown on the published post."
+                  : "Previewed metadata is optional. Leave the boxes unchecked if you only want the external link plus your own title/body."}
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <div>
@@ -115,7 +577,11 @@ export default function SubmitForm({
         <textarea
           placeholder="Add optional text, context, or a rant for the ages..."
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={(e) => {
+            setBody(e.target.value);
+            if (previewMessage) setPreviewMessage(null);
+            if (submitError) setSubmitError(null);
+          }}
           rows={8}
           style={{
             ...inputStyle,
@@ -124,6 +590,58 @@ export default function SubmitForm({
             lineHeight: 1.6,
           }}
         />
+      </div>
+
+      <div>
+        <label style={labelStyle}>Image</label>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={handleImageChange}
+          style={inputStyle}
+        />
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            marginTop: 8,
+          }}
+        >
+          <p style={{ fontSize: 12, color: "#6f6963", lineHeight: 1.5 }}>
+            {imageFile
+              ? `${imageFile.name} · ${formatFileSize(imageFile.size)}`
+              : "Optional: one JPEG, PNG, WebP, or GIF up to 5MB. Link posts cannot also attach an image."}
+          </p>
+
+          {imageFile ? (
+            <button
+              className="act"
+              type="button"
+              onClick={clearImage}
+              style={{ border: "1px solid #242323", borderRadius: 7 }}
+            >
+              Remove
+            </button>
+          ) : null}
+        </div>
+
+        {submitError ? (
+          <p
+            aria-live="polite"
+            style={{
+              fontSize: 12,
+              color: "#ff8b72",
+              lineHeight: 1.5,
+              marginTop: 8,
+            }}
+          >
+            {submitError}
+          </p>
+        ) : null}
       </div>
 
       <div

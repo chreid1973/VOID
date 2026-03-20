@@ -1,6 +1,12 @@
 import { prisma } from "../../../../lib/prisma";
 import { auth } from "@clerk/nextjs/server";
+import { PostType } from "@prisma/client";
 import { NextResponse } from "next/server";
+import {
+  fetchLinkMetadata,
+  getLinkFallbackTitle,
+  normalizeExternalUrl,
+} from "../../../../lib/linkPreview";
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -10,15 +16,27 @@ export async function POST(req: Request) {
   }
 
   const json = await req.json();
-  const { title, body, communityId } = json as {
+  const {
+    title,
+    body,
+    communityId,
+    imageKey,
+    url,
+    includeLinkPreviewDescription,
+    includeLinkPreviewImage,
+  } = json as {
     title?: string;
     body?: string;
     communityId?: string;
+    imageKey?: string;
+    url?: string;
+    includeLinkPreviewDescription?: boolean;
+    includeLinkPreviewImage?: boolean;
   };
 
-  if (!title?.trim() || !communityId?.trim()) {
+  if (!communityId?.trim()) {
     return NextResponse.json(
-      { error: "Title and community are required." },
+      { error: "Community is required." },
       { status: 400 }
     );
   }
@@ -36,15 +54,94 @@ export async function POST(req: Request) {
     });
   }
 
-  const trimmedTitle = title.trim();
+  const trimmedTitle = title?.trim() || "";
   const trimmedBody = body?.trim() || null;
   const trimmedCommunityId = communityId.trim();
+  const trimmedImageKey = imageKey?.trim() || null;
+  const trimmedUrl = url?.trim() || null;
+  const shouldIncludeLinkPreviewDescription =
+    includeLinkPreviewDescription === true;
+  const shouldIncludeLinkPreviewImage = includeLinkPreviewImage === true;
+
+  if (trimmedImageKey && trimmedUrl) {
+    return NextResponse.json(
+      { error: "Choose either an image or a link for now." },
+      { status: 400 }
+    );
+  }
+
+  if (trimmedImageKey) {
+    const hasAllowedExtension = /\.(?:jpe?g|png|webp|gif)$/i.test(
+      trimmedImageKey
+    );
+    const publicBase = process.env.NEXT_PUBLIC_R2_PUBLIC_URL?.replace(/\/+$/, "");
+    const isR2PublicUrl =
+      Boolean(publicBase) && trimmedImageKey.startsWith(`${publicBase}/`);
+    const isLegacyUploadKey = trimmedImageKey.startsWith("posts/");
+
+    if ((!isR2PublicUrl && !isLegacyUploadKey) || !hasAllowedExtension) {
+      return NextResponse.json(
+        { error: "Invalid image upload." },
+        { status: 400 }
+      );
+    }
+  }
+
+  let normalizedUrl: string | null = null;
+  let scrapedTitle: string | null = null;
+  let scrapedDescription: string | null = null;
+  let scrapedImageUrl: string | null = null;
+
+  if (trimmedUrl) {
+    try {
+      normalizedUrl = normalizeExternalUrl(trimmedUrl);
+      const metadata = await fetchLinkMetadata(normalizedUrl);
+      normalizedUrl = metadata.url;
+      scrapedTitle = metadata.title;
+      scrapedDescription = metadata.description;
+      scrapedImageUrl = metadata.imageUrl;
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Invalid link URL.",
+        },
+        { status: 400 }
+      );
+    }
+  }
+
+  const finalTitle =
+    trimmedTitle ||
+    scrapedTitle ||
+    (normalizedUrl ? getLinkFallbackTitle(normalizedUrl) : "");
+  const finalBody =
+    trimmedBody && shouldIncludeLinkPreviewDescription && scrapedDescription
+      ? `${trimmedBody}\n\n${scrapedDescription}`
+      : trimmedBody ||
+        (shouldIncludeLinkPreviewDescription ? scrapedDescription : null);
+  const storedImageKey =
+    trimmedImageKey || (shouldIncludeLinkPreviewImage ? scrapedImageUrl : null);
+
+  if (!finalTitle) {
+    return NextResponse.json(
+      { error: "Title is required unless a valid link can supply one." },
+      { status: 400 }
+    );
+  }
 
   const post = await prisma.$transaction(async (tx) => {
     const createdPost = await tx.post.create({
       data: {
-        title: trimmedTitle,
-        body: trimmedBody,
+        title: finalTitle,
+        body: finalBody,
+        url: normalizedUrl,
+        imageKey: storedImageKey,
+        type: trimmedImageKey
+          ? PostType.IMAGE
+          : normalizedUrl
+            ? PostType.LINK
+            : PostType.TEXT,
         communityId: trimmedCommunityId,
         authorId: user.id,
         score: 1,

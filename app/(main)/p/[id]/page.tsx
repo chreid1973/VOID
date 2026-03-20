@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getCurrentUser } from "../../../../auth";
 import { prisma } from "../../../../lib/prisma";
 import PostPageShell from "../../../../components/PostPageShell";
+import { resolveStoredImageUrl } from "../../../../r2";
 
 function timeAgo(date: Date) {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -182,6 +183,8 @@ export default async function PostPage({
     id: post.id,
     title: post.title,
     body: post.body,
+    url: post.url,
+    imageUrl: post.imageKey ? resolveStoredImageUrl(post.imageKey) : null,
     createdAt: post.createdAt.toISOString(),
     score: post.score,
     userVote: formatUserVote(postVote?.value),

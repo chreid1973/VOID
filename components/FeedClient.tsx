@@ -10,6 +10,8 @@ type FeedPost = {
   community: string;
   title: string;
   body: string;
+  url: string | null;
+  imageUrl: string | null;
   author: string;
   votes: number;
   userVote: 1 | -1 | null;
@@ -49,6 +51,16 @@ const voteDirection = (value: 1 | -1 | null | undefined) =>
 
 const norm = (value: string | null | undefined) =>
   (value ?? "").trim().toLowerCase();
+
+const linkHost = (value: string | null | undefined) => {
+  if (!value) return null;
+
+  try {
+    return new URL(value).hostname.replace(/^www\./i, "");
+  } catch {
+    return value;
+  }
+};
 
 function Badge({
   cid,
@@ -245,20 +257,61 @@ function PostCard({
 
             <h2 className="post-title">{p.title}</h2>
 
-            <p
-              style={{
-                fontSize: 13,
-                lineHeight: 1.6,
-                color: "#4d4b49",
-                marginBottom: 12,
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-              }}
-            >
-              {p.body}
-            </p>
+            {p.url ? (
+              <p
+                style={{
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                  color: "#7a726a",
+                  marginBottom: p.body || p.imageUrl ? 10 : 12,
+                }}
+              >
+                ↗ {linkHost(p.url)}
+              </p>
+            ) : null}
+
+            {p.body || p.imageUrl ? (
+              <div
+                style={{
+                  display: "grid",
+                  gap: 12,
+                  marginBottom: 12,
+                }}
+              >
+                {p.body ? (
+                  <p
+                    style={{
+                      fontSize: 13,
+                      lineHeight: 1.6,
+                      color: "#4d4b49",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {p.body}
+                  </p>
+                ) : null}
+
+                {p.imageUrl ? (
+                  <img
+                    src={p.imageUrl}
+                    alt={p.title}
+                    loading="lazy"
+                    style={{
+                      width: "100%",
+                      maxHeight: 320,
+                      objectFit: "cover",
+                      display: "block",
+                      borderRadius: 12,
+                      border: "1px solid #1f1f1f",
+                      background: "#111010",
+                    }}
+                  />
+                ) : null}
+              </div>
+            ) : null}
           </Link>
 
           <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -491,6 +544,7 @@ export default function FeedClient({
       !q ||
       p.title.toLowerCase().includes(q.toLowerCase()) ||
       p.body.toLowerCase().includes(q.toLowerCase()) ||
+      (p.url ?? "").toLowerCase().includes(q.toLowerCase()) ||
       p.author.toLowerCase().includes(q.toLowerCase());
 
     return byCom && byQ;

@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/auth";
 
 const voteSchema = z.object({
-  targetId:   z.string().cuid(),
+  targetId:   z.string().trim().min(1).max(191),
   targetType: z.enum(["post", "comment"]),
   value:      z.union([z.literal(1), z.literal(-1), z.literal(0)]), // 0 = remove vote
 });
@@ -80,7 +80,10 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: err.flatten() }, { status: 422 });
+      return NextResponse.json(
+        { error: err.issues[0]?.message || "Invalid vote request" },
+        { status: 422 }
+      );
     }
     if (err instanceof Error && err.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Not signed in" }, { status: 401 });
