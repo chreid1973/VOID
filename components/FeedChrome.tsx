@@ -454,7 +454,14 @@ export function FeedSidebar(props: FeedSidebarProps) {
               {c.icon}
             </span>
             <span style={{ flex: 1 }}>{c.displayName}</span>
-            <span style={{ fontSize: 10, color: "#2e2d2c" }}>
+            <span
+              style={{
+                fontSize: 10.5,
+                color: "#625c55",
+                fontWeight: 600,
+                letterSpacing: ".01em",
+              }}
+            >
               {c.postCount}p · {c.memberCount}m
             </span>
           </div>
@@ -493,7 +500,14 @@ export function FeedSidebar(props: FeedSidebarProps) {
               {c.icon}
             </span>
             <span style={{ flex: 1 }}>{c.displayName}</span>
-            <span style={{ fontSize: 10, color: "#2e2d2c" }}>
+            <span
+              style={{
+                fontSize: 10.5,
+                color: "#625c55",
+                fontWeight: 600,
+                letterSpacing: ".01em",
+              }}
+            >
               {c.postCount}p · {c.memberCount}m
             </span>
           </Link>
