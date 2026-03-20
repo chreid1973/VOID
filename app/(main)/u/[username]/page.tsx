@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { currentUser as getClerkAccount } from "@clerk/nextjs/server";
 import { notFound } from "next/navigation";
 import { getCurrentUser, isAdminUser } from "../../../../auth";
 import ProfileEditor from "../../../../components/ProfileEditor";
+import ProfileSignOutButton from "../../../../components/ProfileSignOutButton";
 import { prisma } from "../../../../lib/prisma";
 import { resolveStoredImageUrl } from "../../../../r2";
 
@@ -69,6 +71,18 @@ function buildProfileHref(
   return query ? `/u/${encodeURIComponent(username)}?${query}` : `/u/${encodeURIComponent(username)}`;
 }
 
+function formatProviderLabel(value: string | null | undefined) {
+  if (!value) {
+    return "Email";
+  }
+
+  return value
+    .split(/[_-]/g)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 export default async function UserProfilePage({
   params,
   searchParams,
@@ -108,11 +122,21 @@ export default async function UserProfilePage({
   if (!user) return notFound();
 
   const isOwner = currentUser?.id === user.id;
+  const clerkAccount = isOwner ? await getClerkAccount() : null;
   const canSeeHiddenContent = isAdminUser(currentUser);
   const avatarUrl = user.avatarUrl
     ? resolveStoredImageUrl(user.avatarUrl)
     : null;
   const profileLabel = user.displayName || user.username;
+  const primaryEmail =
+    clerkAccount?.emailAddresses.find(
+      (email) => email.id === clerkAccount.primaryEmailAddressId
+    )?.emailAddress ??
+    clerkAccount?.emailAddresses[0]?.emailAddress ??
+    null;
+  const accountProvider = formatProviderLabel(
+    clerkAccount?.externalAccounts[0]?.provider
+  );
   const [posts, comments, visiblePostCount, visibleCommentCount] = await Promise.all([
     prisma.post.findMany({
       where: {
@@ -347,12 +371,97 @@ export default async function UserProfilePage({
               </div>
 
               {isOwner ? (
-                <ProfileEditor
-                  initialDisplayName={user.displayName}
-                  initialBio={user.bio}
-                  initialAvatarValue={user.avatarUrl}
-                  initialAvatarUrl={avatarUrl}
-                />
+                <>
+                  <ProfileEditor
+                    initialDisplayName={user.displayName}
+                    initialBio={user.bio}
+                    initialAvatarValue={user.avatarUrl}
+                    initialAvatarUrl={avatarUrl}
+                  />
+
+                  <div
+                    style={{
+                      marginTop: 14,
+                      background: "#111010",
+                      border: "1px solid #242323",
+                      borderRadius: 14,
+                      padding: "14px 16px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <p
+                          style={{
+                            fontSize: 11,
+                            color: "#8b847c",
+                            textTransform: "uppercase",
+                            letterSpacing: ".08em",
+                            marginBottom: 6,
+                          }}
+                        >
+                          Private account
+                        </p>
+
+                        <p
+                          style={{
+                            fontSize: 13.5,
+                            color: "#c0bbb4",
+                            lineHeight: 1.6,
+                          }}
+                        >
+                          Only visible to you.
+                        </p>
+
+                        <div
+                          style={{
+                            display: "grid",
+                            gap: 6,
+                            marginTop: 12,
+                          }}
+                        >
+                          <p
+                            style={{
+                              fontSize: 13,
+                              color: "#8b847c",
+                              lineHeight: 1.6,
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            Sign-in email:{" "}
+                            <span style={{ color: "#ede8e0" }}>
+                              {primaryEmail ?? "No email on file"}
+                            </span>
+                          </p>
+
+                          <p
+                            style={{
+                              fontSize: 13,
+                              color: "#8b847c",
+                              lineHeight: 1.6,
+                            }}
+                          >
+                            Account type:{" "}
+                            <span style={{ color: "#ede8e0" }}>
+                              {accountProvider}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div style={{ flexShrink: 0 }}>
+                        <ProfileSignOutButton />
+                      </div>
+                    </div>
+                  </div>
+                </>
               ) : null}
             </div>
           </div>
