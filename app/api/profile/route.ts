@@ -8,8 +8,14 @@ import {
   resolveStoredImageUrl,
 } from "@/r2";
 
+const DISPLAY_NAME_CHANGE_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
+
+function formatCooldownDays(msRemaining: number) {
+  return Math.ceil(msRemaining / (24 * 60 * 60 * 1000));
+}
+
 const profileSchema = z.object({
-  displayName: z.string().trim().max(64).optional(),
+  displayName: z.string().trim().max(40).optional(),
   bio: z.string().trim().max(280).optional(),
   avatarKey: z.string().trim().max(512).nullable().optional(),
 });
@@ -18,6 +24,29 @@ export async function PATCH(req: NextRequest) {
   try {
     const user = await requireUser();
     const data = profileSchema.parse(await req.json());
+    const nextDisplayName =
+      data.displayName !== undefined
+        ? data.displayName.trim() || user.username
+        : user.displayName;
+    const displayNameChanged = nextDisplayName !== user.displayName;
+
+    if (displayNameChanged && user.displayNameUpdatedAt) {
+      const msSinceLastChange =
+        Date.now() - new Date(user.displayNameUpdatedAt).getTime();
+
+      if (msSinceLastChange < DISPLAY_NAME_CHANGE_COOLDOWN_MS) {
+        const daysRemaining = formatCooldownDays(
+          DISPLAY_NAME_CHANGE_COOLDOWN_MS - msSinceLastChange
+        );
+
+        return NextResponse.json(
+          {
+            error: `Display name can only be changed once every 30 days. You can change it again in ${daysRemaining} day${daysRemaining === 1 ? "" : "s"}.`,
+          },
+          { status: 429 }
+        );
+      }
+    }
 
     let nextAvatarUrl = user.avatarUrl ?? null;
 
@@ -56,10 +85,10 @@ export async function PATCH(req: NextRequest) {
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
-        displayName:
-          data.displayName !== undefined
-            ? data.displayName.trim() || null
-            : user.displayName,
+        displayName: nextDisplayName,
+        displayNameUpdatedAt: displayNameChanged
+          ? new Date()
+          : user.displayNameUpdatedAt,
         bio:
           data.bio !== undefined
             ? data.bio.trim() || null
@@ -69,6 +98,7 @@ export async function PATCH(req: NextRequest) {
       select: {
         username: true,
         displayName: true,
+        displayNameUpdatedAt: true,
         bio: true,
         avatarUrl: true,
       },

@@ -18,6 +18,7 @@ model User {
   clerkId      String    @unique
   username     String    @unique
   displayName  String?
+  displayNameUpdatedAt DateTime?
   bio          String?
   avatarUrl    String?
   isAdmin      Boolean   @default(false)

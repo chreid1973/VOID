@@ -309,7 +309,7 @@ export default function ProfileEditor({
               <input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                maxLength={64}
+                maxLength={40}
                 placeholder="How your name should appear"
                 style={{
                   width: "100%",
@@ -322,6 +322,9 @@ export default function ProfileEditor({
                   outline: "none",
                 }}
               />
+              <p style={{ fontSize: 11.5, color: "#6f6963", marginTop: 6 }}>
+                Username is permanent. Display name can be changed once every 30 days and falls back to your username if cleared.
+              </p>
             </div>
 
             <div>

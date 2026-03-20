@@ -3,6 +3,13 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { prisma } from "../../../lib/prisma";
 
+const RESERVED_USERNAMES = new Set([
+  "admin",
+  "void",
+  "moderator",
+  "support",
+]);
+
 const onboardingSchema = z.object({
   username: z
     .string()
@@ -13,12 +20,16 @@ const onboardingSchema = z.object({
     .refine(
       (value) => /^[a-z0-9_]+$/.test(value),
       "Use lowercase letters, numbers, or underscores only."
+    )
+    .refine(
+      (value) => !RESERVED_USERNAMES.has(value),
+      "That username is reserved."
     ),
   displayName: z
     .string()
     .trim()
     .min(1, "Display name is required.")
-    .max(64, "Display name must be 64 characters or less."),
+    .max(40, "Display name must be 40 characters or less."),
 });
 
 export async function POST(req: Request) {
@@ -74,6 +85,7 @@ export async function POST(req: Request) {
         clerkId: userId,
         username: data.username,
         displayName: data.displayName,
+        displayNameUpdatedAt: new Date(),
         avatarUrl: clerkUser.imageUrl,
       },
       select: {

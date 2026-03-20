@@ -163,7 +163,7 @@ export default function OnboardingForm({
               setDisplayName(e.target.value);
               if (notice) setNotice(null);
             }}
-            maxLength={64}
+            maxLength={40}
             placeholder="How your name should appear"
             style={{
               width: "100%",
@@ -195,7 +195,7 @@ export default function OnboardingForm({
               lineHeight: 1.5,
             }}
           >
-            Usernames use lowercase letters, numbers, and underscores only.
+            Usernames use lowercase letters, numbers, and underscores only. Reserved names like admin, void, moderator, and support are unavailable.
           </p>
 
           <button

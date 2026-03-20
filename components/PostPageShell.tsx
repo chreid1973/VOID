@@ -1042,15 +1042,29 @@ function CommentNode({
           marginBottom: 6,
         }}
       >
-        <span
-          style={{
-            fontSize: isReply ? 12 : 12.5,
-            fontWeight: 600,
-            color: "#b0aba4",
-          }}
-        >
-          {authorLabel}
-        </span>
+        {comment.isDeleted ? (
+          <span
+            style={{
+              fontSize: isReply ? 12 : 12.5,
+              fontWeight: 600,
+              color: "#b0aba4",
+            }}
+          >
+            {authorLabel}
+          </span>
+        ) : (
+          <Link
+            href={`/u/${encodeURIComponent(comment.author.username)}`}
+            style={{
+              fontSize: isReply ? 12 : 12.5,
+              fontWeight: 600,
+              color: "#b0aba4",
+              textDecoration: "none",
+            }}
+          >
+            {authorLabel}
+          </Link>
+        )}
         <span
           style={{
             fontSize: isReply ? 10.5 : 11,
@@ -1593,8 +1607,13 @@ export default function PostPageShell({
                 />
 
                 <span style={{ fontSize: 12, color: "#464442" }}>
-                  u/{post.author.displayName || post.author.username} ·{" "}
-                  {timeAgo(post.createdAt, nowMs)}
+                  <Link
+                    href={`/u/${encodeURIComponent(post.author.username)}`}
+                    style={{ color: "inherit", textDecoration: "none" }}
+                  >
+                    u/{post.author.displayName || post.author.username}
+                  </Link>{" "}
+                  · {timeAgo(post.createdAt, nowMs)}
                 </span>
               </div>
 

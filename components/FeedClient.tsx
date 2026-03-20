@@ -16,7 +16,8 @@ type FeedPost = {
   body: string;
   url: string | null;
   imageUrl: string | null;
-  author: string;
+  authorName: string;
+  authorUsername: string;
   votes: number;
   userVote: 1 | -1 | null;
   comments: number;
@@ -246,44 +247,49 @@ function PostCard({
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              flexWrap: "wrap",
+              marginBottom: 8,
+            }}
+          >
+            <Badge cid={p.community} communities={communities} />
+
+            {p.flair && (
+              <span
+                className="tag"
+                style={{
+                  background: (p.flairColor ?? "#ff4826") + "1e",
+                  color: p.flairColor ?? "#ff4826",
+                }}
+              >
+                {p.flair}
+              </span>
+            )}
+
+            <Link
+              href={`/u/${encodeURIComponent(p.authorUsername)}`}
+              style={{ fontSize: 11.5, color: "#3d3c3a", textDecoration: "none" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              u/<span style={{ color: "#565451" }}>{p.authorName}</span>
+            </Link>
+
+            <span style={{ fontSize: 11.5, color: "#2d2c2b" }}>·</span>
+
+            <span style={{ fontSize: 11.5, color: "#3d3c3a" }}>
+              {p.time} ago
+            </span>
+          </div>
+
           <Link
             href={`/p/${p.id}`}
             aria-label={`Open post: ${p.title}`}
             style={{ display: "block", textDecoration: "none", color: "inherit" }}
           >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 7,
-                flexWrap: "wrap",
-                marginBottom: 8,
-              }}
-            >
-              <Badge cid={p.community} communities={communities} />
-
-              {p.flair && (
-                <span
-                  className="tag"
-                  style={{
-                    background: (p.flairColor ?? "#ff4826") + "1e",
-                    color: p.flairColor ?? "#ff4826",
-                  }}
-                >
-                  {p.flair}
-                </span>
-              )}
-
-              <span style={{ fontSize: 11.5, color: "#3d3c3a" }}>
-                u/<span style={{ color: "#565451" }}>{p.author}</span>
-              </span>
-
-              <span style={{ fontSize: 11.5, color: "#2d2c2b" }}>·</span>
-
-              <span style={{ fontSize: 11.5, color: "#3d3c3a" }}>
-                {p.time} ago
-              </span>
-            </div>
 
             <h2 className="post-title">{p.title}</h2>
 
