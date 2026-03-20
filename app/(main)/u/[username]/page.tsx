@@ -2,6 +2,7 @@ import Link from "next/link";
 import { currentUser as getClerkAccount } from "@clerk/nextjs/server";
 import { notFound } from "next/navigation";
 import { getCurrentUser, isAdminUser } from "../../../../auth";
+import FollowUserButton from "../../../../components/FollowUserButton";
 import ProfileEditor from "../../../../components/ProfileEditor";
 import ProfileSignOutButton from "../../../../components/ProfileSignOutButton";
 import { prisma } from "../../../../lib/prisma";
@@ -153,6 +154,7 @@ export default async function UserProfilePage({
     visiblePostCount,
     visibleCommentCount,
     visibleSavedPostCount,
+    followRecord,
   ] = await Promise.all([
     prisma.post.findMany({
       where: {
@@ -249,6 +251,19 @@ export default async function UserProfilePage({
           },
         })
       : Promise.resolve(0),
+    currentUser && !isOwner
+      ? prisma.userFollow.findUnique({
+          where: {
+            followerId_followingId: {
+              followerId: currentUser.id,
+              followingId: user.id,
+            },
+          },
+          select: {
+            id: true,
+          },
+        })
+      : Promise.resolve(null),
   ]);
   const postsHasPreviousPage = postsPage > 1;
   const commentsHasPreviousPage = commentsPage > 1;
@@ -256,6 +271,7 @@ export default async function UserProfilePage({
   const postsHasNextPage = visiblePostCount > postsPage * PAGE_SIZE;
   const commentsHasNextPage = visibleCommentCount > commentsPage * PAGE_SIZE;
   const savedHasNextPage = visibleSavedPostCount > savedPage * PAGE_SIZE;
+  const isFollowing = Boolean(followRecord);
 
   return (
     <div
@@ -523,6 +539,14 @@ export default async function UserProfilePage({
                     </div>
                   </div>
                 </>
+              ) : currentUser ? (
+                <div style={{ marginTop: 16 }}>
+                  <FollowUserButton
+                    targetUserId={user.id}
+                    targetLabel={profileLabel}
+                    initialIsFollowing={isFollowing}
+                  />
+                </div>
               ) : null}
             </div>
           </div>

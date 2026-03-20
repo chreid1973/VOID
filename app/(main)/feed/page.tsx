@@ -8,7 +8,7 @@ import { resolveStoredImageUrl } from "../../../r2";
 
 const PAGE_SIZE = 20;
 
-type FeedScope = "home" | "popular" | "all";
+type FeedScope = "home" | "following" | "popular" | "all";
 type FeedSort = "hot" | "new" | "top" | "rising";
 type RankedPost = {
   id: string;
@@ -64,7 +64,9 @@ function firstParam(value?: string | string[]) {
 }
 
 function parseScope(value: string | undefined): FeedScope {
-  return value === "popular" || value === "all" ? value : "home";
+  return value === "popular" || value === "all" || value === "following"
+    ? value
+    : "home";
 }
 
 function parseSort(value: string | undefined): FeedSort {
@@ -159,12 +161,20 @@ export default async function FeedPage({
   const currentPage = parsePage(firstParam(searchParams?.page));
   const initialQuery = firstParam(searchParams?.q)?.trim() || "";
 
-  const [memberships, communities] = await Promise.all([
+  const [memberships, follows, communities] = await Promise.all([
     user
       ? prisma.communityMember.findMany({
           where: { userId: user.id },
           select: {
             communityId: true,
+          },
+        })
+      : Promise.resolve([]),
+    user
+      ? prisma.userFollow.findMany({
+          where: { followerId: user.id },
+          select: {
+            followingId: true,
           },
         })
       : Promise.resolve([]),
@@ -188,6 +198,7 @@ export default async function FeedPage({
 
   const joinedCommunityIds = memberships.map((membership) => membership.communityId);
   const joinedCommunityIdSet = new Set(joinedCommunityIds);
+  const followedAuthorIds = follows.map((follow) => follow.followingId);
   const isPersonalizedHome =
     !initialSelectedCommunity &&
     initialScope === "home" &&
@@ -206,6 +217,12 @@ export default async function FeedPage({
           equals: initialSelectedCommunity,
           mode: "insensitive",
         },
+      },
+    });
+  } else if (initialScope === "following") {
+    whereClauses.push({
+      authorId: {
+        in: followedAuthorIds,
       },
     });
   } else if (isPersonalizedHome) {
@@ -451,11 +468,12 @@ export default async function FeedPage({
       initialQuery={initialQuery}
       currentPage={currentPage}
       hasNextPage={hasNextPage}
-      hasPreviousPage={hasPreviousPage}
-      isPersonalizedHome={isPersonalizedHome}
-      currentUser={
-        user
-          ? {
+        hasPreviousPage={hasPreviousPage}
+        isPersonalizedHome={isPersonalizedHome}
+        followedAuthorCount={followedAuthorIds.length}
+        currentUser={
+          user
+            ? {
               username: user.username,
               displayName: user.displayName,
             }

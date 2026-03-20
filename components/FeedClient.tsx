@@ -38,7 +38,7 @@ type FeedCommunity = {
   isMember: boolean;
 };
 
-type FeedScope = "home" | "popular" | "all";
+type FeedScope = "home" | "following" | "popular" | "all";
 type FeedSort = "hot" | "new" | "top" | "rising";
 
 type FeedClientProps = {
@@ -52,6 +52,7 @@ type FeedClientProps = {
   hasNextPage: boolean;
   hasPreviousPage: boolean;
   isPersonalizedHome: boolean;
+  followedAuthorCount: number;
   currentUser: {
     username: string;
     displayName: string | null;
@@ -672,6 +673,7 @@ export default function FeedClient({
   hasNextPage,
   hasPreviousPage,
   isPersonalizedHome,
+  followedAuthorCount,
   currentUser,
 }: FeedClientProps) {
   const router = useRouter();
@@ -683,11 +685,13 @@ export default function FeedClient({
   );
   const sel =
     initialSelectedCommunity ??
-    (initialScope === "popular"
-      ? "__popular"
-      : initialScope === "all"
-        ? "__all"
-        : null);
+    (initialScope === "following"
+      ? "__following"
+      : initialScope === "popular"
+        ? "__popular"
+        : initialScope === "all"
+          ? "__all"
+          : null);
   const selectedCommunity = initialSelectedCommunity
     ? communities.find(
         (community) => norm(community.name) === norm(initialSelectedCommunity)
@@ -764,6 +768,11 @@ export default function FeedClient({
 
     if (selection === "__popular") {
       updateFeedParams({ community: null, scope: "popular", page: null });
+      return;
+    }
+
+    if (selection === "__following") {
+      updateFeedParams({ community: null, scope: "following", page: null });
       return;
     }
 
@@ -867,6 +876,17 @@ export default function FeedClient({
                   Posts with activity across all communities.
                 </p>
               </div>
+            ) : initialScope === "following" ? (
+              <div>
+                <h1 className="feed-title">Following</h1>
+                <p style={{ fontSize: 12, color: "#55514d", marginTop: 4 }}>
+                  {currentUser
+                    ? followedAuthorCount > 0
+                      ? "Posts from the people you follow."
+                      : "Follow posters you like to build this feed."
+                    : "Sign in to follow users and build a personalized feed."}
+                </p>
+              </div>
             ) : initialScope === "all" ? (
               <div>
                 <h1 className="feed-title">All Posts</h1>
@@ -951,7 +971,13 @@ export default function FeedClient({
               <div style={{ fontSize: 32, marginBottom: 10 }}>◎</div>
               <p style={{ fontSize: 14 }}>Nothing here yet.</p>
               <p style={{ fontSize: 12, marginTop: 5, color: "#282726" }}>
-                Try a different filter or community.
+                {initialScope === "following"
+                  ? currentUser
+                    ? followedAuthorCount > 0
+                      ? "Try a different sort or check back later."
+                      : "Follow a few posters and their posts will show up here."
+                    : "Sign in to follow users and build this feed."
+                  : "Try a different filter or community."}
               </p>
             </div>
           )}

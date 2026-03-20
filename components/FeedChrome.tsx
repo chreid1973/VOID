@@ -379,6 +379,7 @@ export function FeedSidebar(props: FeedSidebarProps) {
       {props.mode === "feed" ? (
         [
           { id: null, icon: "⌂", label: "Home Feed" },
+          { id: "__following", icon: "◎", label: "Following" },
           { id: "__popular", icon: "🔥", label: "Popular" },
           { id: "__all", icon: "✦", label: "All Posts" },
         ].map((item) => (
@@ -410,6 +411,15 @@ export function FeedSidebar(props: FeedSidebarProps) {
           >
             <span style={{ fontSize: 13 }}>🔥</span>
             Popular
+          </Link>
+
+          <Link
+            href="/feed?scope=following"
+            className="com-item"
+            style={{ textDecoration: "none" }}
+          >
+            <span style={{ fontSize: 13 }}>◎</span>
+            Following
           </Link>
 
           <Link
