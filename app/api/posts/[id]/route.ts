@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/auth";
+import { deleteObject, extractStoredR2Key } from "@/r2";
 
 type Params = { params: { id: string } };
 
@@ -61,7 +62,10 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     const user = await requireUser();
     const post = await prisma.post.findUnique({
       where: { id: params.id },
-      select: { authorId: true },
+      select: {
+        authorId: true,
+        imageKey: true,
+      },
     });
 
     if (!post) {
@@ -72,9 +76,21 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const storedImageKey = post.imageKey
+      ? extractStoredR2Key(post.imageKey)
+      : null;
+
     await prisma.post.delete({
       where: { id: params.id },
     });
+
+    if (storedImageKey) {
+      try {
+        await deleteObject(storedImageKey);
+      } catch (cleanupErr) {
+        console.error("[DELETE /api/posts/:id] failed to delete image", cleanupErr);
+      }
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

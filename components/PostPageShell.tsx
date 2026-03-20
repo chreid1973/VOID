@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import "../app/(main)/feed/feed.css";
+import { ActionNotice, type ActionNoticeState } from "./ActionNotice";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
 
 type CommunityItem = {
@@ -130,11 +131,13 @@ function Votes({
   n,
   initialVote,
   vertical = false,
+  onError,
 }: {
   postId: string;
   n: number;
   initialVote: 1 | -1 | null;
   vertical?: boolean;
+  onError?: (message: string) => void;
 }) {
   const [v, setV] = useState<"up" | "dn" | null>(voteDirection(initialVote));
   const [count, setCount] = useState(Number.isFinite(n) ? n : 0);
@@ -175,7 +178,7 @@ function Votes({
       if (!res.ok) {
         setV(prevVote);
         setCount(prevCount);
-        alert(data?.error || "Vote failed");
+        onError?.(data?.error || "Vote failed");
         return;
       }
 
@@ -184,7 +187,7 @@ function Votes({
     } catch {
       setV(prevVote);
       setCount(prevCount);
-      alert("Vote failed");
+      onError?.("Vote failed");
     } finally {
       setPending(false);
     }
@@ -234,10 +237,12 @@ function CommentVotes({
   commentId,
   n,
   initialVote,
+  onError,
 }: {
   commentId: string;
   n: number;
   initialVote: 1 | -1 | null;
+  onError?: (message: string) => void;
 }) {
   const [v, setV] = useState<"up" | "dn" | null>(voteDirection(initialVote));
   const [count, setCount] = useState(Number.isFinite(n) ? n : 0);
@@ -277,7 +282,7 @@ function CommentVotes({
       if (!res.ok) {
         setV(prevVote);
         setCount(prevCount);
-        alert(data?.error || "Vote failed");
+        onError?.(data?.error || "Vote failed");
         return;
       }
 
@@ -286,7 +291,7 @@ function CommentVotes({
     } catch {
       setV(prevVote);
       setCount(prevCount);
-      alert("Vote failed");
+      onError?.("Vote failed");
     } finally {
       setPending(false);
     }
@@ -787,6 +792,7 @@ function CommentNode({
   onReply,
   onCancelReply,
   onToggleReplies,
+  onActionNotice,
 }: {
   comment: PostComment;
   postId: string;
@@ -798,6 +804,7 @@ function CommentNode({
   onReply: (commentId: string) => void;
   onCancelReply: () => void;
   onToggleReplies: (commentId: string) => void;
+  onActionNotice: (notice: ActionNoticeState) => void;
 }) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
@@ -852,7 +859,10 @@ function CommentNode({
     const body = editBody.trim();
 
     if (!body) {
-      alert("Comment is required");
+      onActionNotice({
+        tone: "error",
+        message: "Comment is required.",
+      });
       return;
     }
 
@@ -869,14 +879,24 @@ function CommentNode({
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        alert(data?.error || "Failed to update comment");
+        onActionNotice({
+          tone: "error",
+          message: data?.error || "Failed to update comment",
+        });
         return;
       }
 
       setIsEditing(false);
+      onActionNotice({
+        tone: "success",
+        message: "Comment updated.",
+      });
       router.refresh();
     } catch {
-      alert("Failed to update comment");
+      onActionNotice({
+        tone: "error",
+        message: "Failed to update comment",
+      });
     } finally {
       setPending(false);
     }
@@ -894,15 +914,25 @@ function CommentNode({
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        alert(data?.error || "Failed to delete comment");
+        onActionNotice({
+          tone: "error",
+          message: data?.error || "Failed to delete comment",
+        });
         return;
       }
 
       onCancelReply();
       setIsEditing(false);
+      onActionNotice({
+        tone: "success",
+        message: "Comment deleted.",
+      });
       router.refresh();
     } catch {
-      alert("Failed to delete comment");
+      onActionNotice({
+        tone: "error",
+        message: "Failed to delete comment",
+      });
     } finally {
       setPending(false);
     }
@@ -1029,6 +1059,9 @@ function CommentNode({
                 commentId={comment.id}
                 n={comment.score}
                 initialVote={comment.userVote}
+                onError={(message) =>
+                  onActionNotice({ tone: "error", message })
+                }
               />
             ) : null}
             {!comment.isDeleted ? (
@@ -1119,6 +1152,7 @@ function CommentNode({
                 onReply={onReply}
                 onCancelReply={onCancelReply}
                 onToggleReplies={onToggleReplies}
+                onActionNotice={onActionNotice}
               />
             </div>
           ))}
@@ -1148,6 +1182,9 @@ export default function PostPageShell({
   const initialNowMs = new Date(renderedAt).getTime();
   const [nowMs, setNowMs] = useState(initialNowMs);
   const [copied, setCopied] = useState(false);
+  const [actionNotice, setActionNotice] = useState<ActionNoticeState | null>(
+    null
+  );
   const [commentSort, setCommentSort] = useState<CommentSort>("best");
   const [visibleCommentCount, setVisibleCommentCount] = useState(20);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -1174,13 +1211,26 @@ export default function PostPageShell({
     return () => window.clearInterval(intervalId);
   }, []);
 
+  useEffect(() => {
+    if (!actionNotice) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setActionNotice(null);
+    }, 3200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [actionNotice]);
+
   async function handlePostSave() {
     if (postPending) return;
 
     const update = postBody.trim();
 
     if (!update) {
-      alert("Update is required");
+      setActionNotice({
+        tone: "error",
+        message: "Update is required.",
+      });
       return;
     }
 
@@ -1199,15 +1249,25 @@ export default function PostPageShell({
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        alert(data?.error || "Failed to update post");
+        setActionNotice({
+          tone: "error",
+          message: data?.error || "Failed to update post",
+        });
         return;
       }
 
       setPostBody("");
       setEditingPost(false);
+      setActionNotice({
+        tone: "success",
+        message: "Update added.",
+      });
       router.refresh();
     } catch {
-      alert("Failed to update post");
+      setActionNotice({
+        tone: "error",
+        message: "Failed to update post",
+      });
     } finally {
       setPostPending(false);
     }
@@ -1225,14 +1285,20 @@ export default function PostPageShell({
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        alert(data?.error || "Failed to delete post");
+        setActionNotice({
+          tone: "error",
+          message: data?.error || "Failed to delete post",
+        });
         return;
       }
 
       router.push(backHref);
       router.refresh();
     } catch {
-      alert("Failed to delete post");
+      setActionNotice({
+        tone: "error",
+        message: "Failed to delete post",
+      });
     } finally {
       setPostPending(false);
     }
@@ -1256,6 +1322,8 @@ export default function PostPageShell({
 
   return (
     <div className="feed-shell">
+      {actionNotice ? <ActionNotice {...actionNotice} /> : null}
+
       <FeedTopBar mode="post" currentUser={currentUser} />
 
       <div className="feed-container">
@@ -1453,7 +1521,14 @@ export default function PostPageShell({
                   gap: 6,
                 }}
               >
-                <Votes postId={post.id} n={post.score} initialVote={post.userVote} />
+                <Votes
+                  postId={post.id}
+                  n={post.score}
+                  initialVote={post.userVote}
+                  onError={(message) =>
+                    setActionNotice({ tone: "error", message })
+                  }
+                />
                 <div
                   style={{
                     width: 1,
@@ -1592,6 +1667,7 @@ export default function PostPageShell({
                       onReply={handleReply}
                       onCancelReply={() => setReplyingTo(null)}
                       onToggleReplies={toggleReplies}
+                      onActionNotice={setActionNotice}
                     />
                   </div>
                 ))}

@@ -8,6 +8,12 @@ const PAGE_SIZE = 20;
 
 type FeedScope = "home" | "popular" | "all";
 type FeedSort = "hot" | "new" | "top" | "rising";
+type RankedPost = {
+  id: string;
+  score: number;
+  commentCount: number;
+  createdAt: Date;
+};
 
 function timeAgo(date: Date) {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -56,18 +62,53 @@ function parsePage(value: string | undefined) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
-function buildOrderBy(sort: FeedSort): Prisma.PostOrderByWithRelationInput[] {
-  switch (sort) {
-    case "new":
-      return [{ createdAt: "desc" }];
-    case "top":
-      return [{ score: "desc" }, { commentCount: "desc" }, { createdAt: "desc" }];
-    case "rising":
-      return [{ createdAt: "desc" }, { commentCount: "desc" }, { score: "desc" }];
-    case "hot":
-    default:
-      return [{ commentCount: "desc" }, { score: "desc" }, { createdAt: "desc" }];
+function ageHours(createdAt: Date, nowMs: number) {
+  return Math.max((nowMs - createdAt.getTime()) / 3_600_000, 0);
+}
+
+function hotScore(post: RankedPost, nowMs: number) {
+  const hours = ageHours(post.createdAt, nowMs);
+  const engagement =
+    Math.max(post.score, 0) * 1.35 +
+    post.commentCount * 2.3 +
+    Math.min(post.score, 0) * 0.6 +
+    2;
+
+  return engagement / Math.pow(hours + 2, 1.32);
+}
+
+function risingScore(post: RankedPost, nowMs: number) {
+  const hours = ageHours(post.createdAt, nowMs);
+  const engagement =
+    Math.max(post.score, 0) * 1.1 + post.commentCount * 2.8 + 1;
+  const freshnessPenalty = hours > 72 ? 0.18 : 1;
+
+  return (engagement * freshnessPenalty) / Math.pow(hours + 2, 1.9);
+}
+
+function compareRankedPosts(a: RankedPost, b: RankedPost, sort: FeedSort, nowMs: number) {
+  const createdAtDelta = b.createdAt.getTime() - a.createdAt.getTime();
+  const scoreDelta = b.score - a.score;
+  const commentDelta = b.commentCount - a.commentCount;
+
+  if (sort === "new") {
+    return createdAtDelta || scoreDelta || commentDelta || a.id.localeCompare(b.id);
   }
+
+  if (sort === "top") {
+    return scoreDelta || commentDelta || createdAtDelta || a.id.localeCompare(b.id);
+  }
+
+  const rankDelta =
+    sort === "rising"
+      ? risingScore(b, nowMs) - risingScore(a, nowMs)
+      : hotScore(b, nowMs) - hotScore(a, nowMs);
+
+  if (Math.abs(rankDelta) > 0.000001) {
+    return rankDelta;
+  }
+
+  return scoreDelta || commentDelta || createdAtDelta || a.id.localeCompare(b.id);
 }
 
 export default async function FeedPage({
@@ -201,33 +242,62 @@ export default async function FeedPage({
         } satisfies Prisma.PostWhereInput)
       : undefined;
 
-  const posts = await prisma.post.findMany({
+  const rankingNowMs = Date.now();
+  const rankedPosts = await prisma.post.findMany({
     where,
-    orderBy: buildOrderBy(initialSort),
-    skip: (currentPage - 1) * PAGE_SIZE,
-    take: PAGE_SIZE + 1,
-    include: {
-      author: {
-        select: {
-          username: true,
-          displayName: true,
-        },
-      },
-      community: {
-        select: {
-          id: true,
-          name: true,
-          displayName: true,
-          icon: true,
-          color: true,
-        },
-      },
+    select: {
+      id: true,
+      score: true,
+      commentCount: true,
+      createdAt: true,
     },
   });
 
-  const hasNextPage = posts.length > PAGE_SIZE;
-  const visiblePosts = hasNextPage ? posts.slice(0, PAGE_SIZE) : posts;
+  rankedPosts.sort((a, b) => compareRankedPosts(a, b, initialSort, rankingNowMs));
+
+  const pageOffset = (currentPage - 1) * PAGE_SIZE;
+  const visiblePostIds = rankedPosts
+    .slice(pageOffset, pageOffset + PAGE_SIZE)
+    .map((post) => post.id);
+  const hasNextPage = rankedPosts.length > pageOffset + PAGE_SIZE;
   const hasPreviousPage = currentPage > 1;
+  const visiblePostsRaw =
+    visiblePostIds.length > 0
+      ? await prisma.post.findMany({
+          where: {
+            id: {
+              in: visiblePostIds,
+            },
+          },
+          include: {
+            author: {
+              select: {
+                username: true,
+                displayName: true,
+              },
+            },
+            community: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                icon: true,
+                color: true,
+              },
+            },
+          },
+        })
+      : [];
+  const visiblePostMap = new Map(
+    visiblePostsRaw.map((post) => [post.id, post])
+  );
+  const visiblePosts = visiblePostIds
+    .map((postId) => visiblePostMap.get(postId))
+    .filter(
+      (
+        post
+      ): post is (typeof visiblePostsRaw)[number] => Boolean(post)
+    );
 
   const postVotes =
     user && visiblePosts.length > 0

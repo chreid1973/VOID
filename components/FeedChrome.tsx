@@ -96,6 +96,13 @@ export function CommunityBadge({
 }
 
 export function FeedTopBar(props: FeedTopBarProps) {
+  const sortOptions = [
+    ["🔥", "hot", "Hot"],
+    ["✦", "new", "New"],
+    ["▲", "top", "Top"],
+    ["↑", "rising", "Rising"],
+  ] as const;
+
   return (
     <header className="feed-topbar">
       {props.mode === "feed" ? (
@@ -220,12 +227,7 @@ export function FeedTopBar(props: FeedTopBarProps) {
 
       <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
         {props.mode === "feed"
-          ? ([
-              ["🔥", "hot", "Hot"],
-              ["✦", "new", "New"],
-              ["▲", "top", "Top"],
-              ["↑", "rising", "Rising"],
-            ] as const).map(([ic, value, label]) => (
+          ? sortOptions.map(([ic, value, label]) => (
                 <button
                   key={value}
                   className={`srt ${props.sort === value ? "on" : ""}`}
@@ -235,10 +237,15 @@ export function FeedTopBar(props: FeedTopBarProps) {
                   {props.sort === value ? `${ic} ${label}` : label}
                 </button>
               ))
-          : ["HOT", "NEW", "TOP", "RISING"].map((s, i) => (
-              <button key={s} className={`srt ${i === 0 ? "on" : ""}`} type="button">
-                {s}
-              </button>
+          : sortOptions.map(([, value, label], i) => (
+              <Link
+                key={value}
+                href={`/feed?sort=${value}`}
+                className={`srt ${i === 0 ? "on" : ""}`}
+                style={{ textDecoration: "none" }}
+              >
+                {label.toUpperCase()}
+              </Link>
             ))}
       </div>
 
@@ -270,7 +277,8 @@ export function FeedTopBar(props: FeedTopBarProps) {
           </Link>
         ) : props.mode === "feed" ? (
           <>
-            <button
+            <Link
+              href="/sign-in"
               style={{
                 background: "none",
                 border: "1px solid #252424",
@@ -283,12 +291,14 @@ export function FeedTopBar(props: FeedTopBarProps) {
                 cursor: "pointer",
                 transition: "all .15s",
                 letterSpacing: ".02em",
+                textDecoration: "none",
               }}
             >
               Log in
-            </button>
+            </Link>
 
-            <button
+            <Link
+              href="/sign-up"
               style={{
                 background: "#ff4826",
                 border: "none",
@@ -302,10 +312,11 @@ export function FeedTopBar(props: FeedTopBarProps) {
                 transition: "opacity .15s, transform .1s",
                 letterSpacing: ".03em",
                 boxShadow: "0 2px 10px rgba(255,72,38,.3)",
+                textDecoration: "none",
               }}
             >
               Sign up
-            </button>
+            </Link>
           </>
         ) : (
           <>

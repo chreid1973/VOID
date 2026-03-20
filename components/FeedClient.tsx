@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import "../app/(main)/feed/feed.css";
+import { ActionNotice, type ActionNoticeState } from "./ActionNotice";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
 
 type FeedPost = {
@@ -99,11 +100,13 @@ function Votes({
   n,
   initialVote,
   vertical = false,
+  onError,
 }: {
   postId: string;
   n: number;
   initialVote: 1 | -1 | null;
   vertical?: boolean;
+  onError?: (message: string) => void;
 }) {
   const [v, setV] = useState<"up" | "dn" | null>(voteDirection(initialVote));
   const [count, setCount] = useState(Number.isFinite(n) ? n : 0);
@@ -148,7 +151,7 @@ function Votes({
       if (!res.ok) {
         setV(prevVote);
         setCount(prevCount);
-        alert(data?.error || "Vote failed");
+        onError?.(data?.error || "Vote failed");
         return;
       }
 
@@ -157,7 +160,7 @@ function Votes({
     } catch {
       setV(prevVote);
       setCount(prevCount);
-      alert("Vote failed");
+      onError?.("Vote failed");
     } finally {
       setPending(false);
     }
@@ -207,10 +210,12 @@ function PostCard({
   p,
   idx,
   communities,
+  onVoteError,
 }: {
   p: FeedPost;
   idx: number;
   communities: FeedCommunity[];
+  onVoteError: (message: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -224,7 +229,13 @@ function PostCard({
     >
       <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
         <div style={{ paddingTop: 2, flexShrink: 0 }}>
-          <Votes postId={p.id} n={p.votes} initialVote={p.userVote} vertical />
+          <Votes
+            postId={p.id}
+            n={p.votes}
+            initialVote={p.userVote}
+            vertical
+            onError={onVoteError}
+          />
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -546,8 +557,10 @@ function RightRail({
 
 function CommunityMembershipButton({
   community,
+  onNotice,
 }: {
   community: FeedCommunity;
+  onNotice: (notice: ActionNoticeState) => void;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -564,13 +577,25 @@ function CommunityMembershipButton({
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        alert(data?.error || "Failed to update community membership.");
+        onNotice({
+          tone: "error",
+          message: data?.error || "Failed to update community membership.",
+        });
         return;
       }
 
+      onNotice({
+        tone: "success",
+        message: community.isMember
+          ? `Left ${community.displayName}.`
+          : `Joined ${community.displayName}.`,
+      });
       router.refresh();
     } catch {
-      alert("Failed to update community membership.");
+      onNotice({
+        tone: "error",
+        message: "Failed to update community membership.",
+      });
     } finally {
       setPending(false);
     }
@@ -627,6 +652,9 @@ export default function FeedClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [q, setQ] = useState(initialQuery);
+  const [actionNotice, setActionNotice] = useState<ActionNoticeState | null>(
+    null
+  );
   const sel =
     initialSelectedCommunity ??
     (initialScope === "popular"
@@ -643,6 +671,16 @@ export default function FeedClient({
   useEffect(() => {
     setQ(initialQuery);
   }, [initialQuery]);
+
+  useEffect(() => {
+    if (!actionNotice) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setActionNotice(null);
+    }, 3200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [actionNotice]);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -721,6 +759,8 @@ export default function FeedClient({
 
   return (
     <div className="feed-shell">
+      {actionNotice ? <ActionNotice {...actionNotice} /> : null}
+
       <FeedTopBar
         mode="feed"
         q={q}
@@ -788,7 +828,10 @@ export default function FeedClient({
                 </div>
 
                 {currentUser ? (
-                  <CommunityMembershipButton community={selectedCommunity} />
+                  <CommunityMembershipButton
+                    community={selectedCommunity}
+                    onNotice={setActionNotice}
+                  />
                 ) : null}
               </div>
             ) : initialScope === "popular" ? (
@@ -820,7 +863,15 @@ export default function FeedClient({
           {initialPosts.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {initialPosts.map((p, i) => (
-                <PostCard key={p.id} p={p} idx={i} communities={communities} />
+                <PostCard
+                  key={p.id}
+                  p={p}
+                  idx={i}
+                  communities={communities}
+                  onVoteError={(message) =>
+                    setActionNotice({ tone: "error", message })
+                  }
+                />
               ))}
 
               <div
