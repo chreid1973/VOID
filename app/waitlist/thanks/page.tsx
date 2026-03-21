@@ -214,7 +214,7 @@ export default function WaitlistThanksPage() {
                 boxShadow: "0 14px 36px rgba(255,72,38,.22)",
               }}
             >
-              Back to SocialVOID
+              Return To Home
             </Link>
 
             <Link
