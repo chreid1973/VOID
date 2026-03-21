@@ -441,26 +441,6 @@ function RightRail({
           + Create Post
         </Link>
 
-        <button
-          type="button"
-          style={{
-            width: "100%",
-            marginTop: 8,
-            background: "none",
-            border: "1px solid #242323",
-            borderRadius: 9,
-            color: "#6a6764",
-            fontFamily: "var(--font-outfit), sans-serif",
-            fontSize: 13,
-            fontWeight: 600,
-            padding: "8px",
-            cursor: "pointer",
-            transition: "all .15s",
-            letterSpacing: ".02em",
-          }}
-        >
-          + Create Community
-        </button>
       </div>
 
       <div className="card" style={{ padding: "16px 18px", marginBottom: 14 }}>
