@@ -9,6 +9,7 @@ import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
 import MentionText from "./MentionText";
 import ReportAction from "./ReportAction";
 import SavePostButton from "./SavePostButton";
+import { useResolvedMentions } from "./useResolvedMentions";
 
 type CommunityItem = {
   id: string;
@@ -194,6 +195,61 @@ function getCommentAncestors(
   }
 
   return ancestors;
+}
+
+function MentionDraftHint({
+  text,
+  compact = false,
+}: {
+  text: string;
+  compact?: boolean;
+}) {
+  const { mentionedUsernames, resolvedMentions, unresolvedMentions, loading } =
+    useResolvedMentions(text);
+
+  if (mentionedUsernames.length === 0) return null;
+
+  const infoParts: string[] = [];
+
+  if (resolvedMentions.length > 0) {
+    infoParts.push(
+      `Will link and notify ${resolvedMentions
+        .map((username) => `@${username}`)
+        .join(", ")}`
+    );
+  }
+
+  if (unresolvedMentions.length > 0) {
+    infoParts.push(
+      `No user found for ${unresolvedMentions
+        .map((username) => `@${username}`)
+        .join(", ")}`
+    );
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: compact ? 8 : 10,
+        padding: compact ? "8px 10px" : "9px 12px",
+        borderRadius: 8,
+        border: "1px solid #252424",
+        background: "#141313",
+        display: "grid",
+        gap: 4,
+      }}
+    >
+      <p
+        style={{
+          fontSize: compact ? 11.5 : 12,
+          color: "#8b847c",
+          lineHeight: 1.5,
+        }}
+      >
+        {loading ? "Checking mentions..." : infoParts.join(". ")}
+      </p>
+    </div>
+  );
 }
 
 function Votes({
@@ -528,12 +584,14 @@ function RightRail({
 
 function CommentComposer({ postId }: { postId: string }) {
   const [body, setBody] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitState, setSubmitState] = useState<{
     tone: "success" | "error";
     message: string;
   } | null>(null);
   const router = useRouter();
+  const { resolvedMentions } = useResolvedMentions(body);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -618,6 +676,26 @@ function CommentComposer({ postId }: { postId: string }) {
           }}
         />
 
+        <MentionDraftHint text={body} />
+
+        {showPreview && body.trim() ? (
+          <div
+            style={{
+              marginTop: 10,
+              padding: "12px 14px",
+              border: "1px solid #252424",
+              borderRadius: 8,
+              background: "#141313",
+              fontSize: 13.5,
+              lineHeight: 1.7,
+              color: "#c7c2bb",
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            <MentionText text={body} mentions={resolvedMentions} />
+          </div>
+        ) : null}
+
         {submitState ? (
           <p
             aria-live="polite"
@@ -644,9 +722,10 @@ function CommentComposer({ postId }: { postId: string }) {
           <button
             className="act"
             type="button"
+            onClick={() => setShowPreview((current) => !current)}
             style={{ border: "1px solid #242323", borderRadius: 7 }}
           >
-            Preview
+            {showPreview ? "Hide Preview" : "Preview"}
           </button>
 
           <button
@@ -685,12 +764,14 @@ function ReplyComposer({
   onCancel: () => void;
 }) {
   const [body, setBody] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitState, setSubmitState] = useState<{
     tone: "success" | "error";
     message: string;
   } | null>(null);
   const router = useRouter();
+  const { resolvedMentions } = useResolvedMentions(body);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -775,6 +856,26 @@ function ReplyComposer({
         }}
       />
 
+      <MentionDraftHint text={body} compact />
+
+      {showPreview && body.trim() ? (
+        <div
+          style={{
+            marginTop: 8,
+            padding: "10px 12px",
+            border: "1px solid #252424",
+            borderRadius: 8,
+            background: "#141313",
+            fontSize: 12.5,
+            lineHeight: 1.7,
+            color: "#c7c2bb",
+            whiteSpace: "pre-wrap",
+          }}
+        >
+          <MentionText text={body} mentions={resolvedMentions} />
+        </div>
+      ) : null}
+
       {submitState ? (
         <p
           aria-live="polite"
@@ -797,6 +898,15 @@ function ReplyComposer({
           marginTop: 8,
         }}
       >
+        <button
+          className="act"
+          type="button"
+          onClick={() => setShowPreview((current) => !current)}
+          style={{ border: "1px solid #242323", borderRadius: 7 }}
+        >
+          {showPreview ? "Hide Preview" : "Preview"}
+        </button>
+
         <button
           className="act"
           type="button"

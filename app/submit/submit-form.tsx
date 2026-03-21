@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import MentionText from "@/components/MentionText";
+import { useResolvedMentions } from "@/components/useResolvedMentions";
 
 type Community = {
   id: string;
@@ -89,6 +91,12 @@ export default function SubmitForm({
     useState(false);
   const [includeLinkPreviewImage, setIncludeLinkPreviewImage] = useState(false);
   const [loading, setLoading] = useState(false);
+  const {
+    mentionedUsernames,
+    resolvedMentions,
+    unresolvedMentions,
+    loading: mentionLoading,
+  } = useResolvedMentions(`${title}\n${body}`);
 
   async function uploadImage(file: File) {
     const setupRes = await fetch("/api/upload", {
@@ -713,6 +721,94 @@ export default function SubmitForm({
               lineHeight: 1.6,
             }}
           />
+
+          {mentionedUsernames.length > 0 ? (
+            <div
+              style={{
+                marginTop: 10,
+                display: "grid",
+                gap: 8,
+                border: "1px solid #252424",
+                borderRadius: 10,
+                background: "#141313",
+                padding: "12px 14px",
+              }}
+            >
+              <p
+                style={{
+                  fontSize: 12,
+                  color: "#8b847c",
+                  lineHeight: 1.5,
+                }}
+              >
+                {mentionLoading
+                  ? "Checking mentions..."
+                  : [
+                      resolvedMentions.length > 0
+                        ? `Will link and notify ${resolvedMentions
+                            .map((username) => `@${username}`)
+                            .join(", ")}`
+                        : null,
+                      unresolvedMentions.length > 0
+                        ? `No user found for ${unresolvedMentions
+                            .map((username) => `@${username}`)
+                            .join(", ")}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(". ")}
+              </p>
+
+              <div
+                style={{
+                  border: "1px solid #252424",
+                  borderRadius: 8,
+                  background: "#111010",
+                  padding: "12px 14px",
+                  display: "grid",
+                  gap: 8,
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: 11.5,
+                    letterSpacing: ".08em",
+                    textTransform: "uppercase",
+                    color: "#8b847c",
+                    fontWeight: 700,
+                  }}
+                >
+                  Mention Preview
+                </p>
+
+                {title.trim() ? (
+                  <p
+                    style={{
+                      fontSize: 18,
+                      lineHeight: 1.3,
+                      color: "#ece7df",
+                      fontWeight: 700,
+                    }}
+                  >
+                    <MentionText text={title} mentions={resolvedMentions} />
+                  </p>
+                ) : null}
+
+                {body.trim() ? (
+                  <p
+                    style={{
+                      fontSize: 13.5,
+                      lineHeight: 1.7,
+                      color: "#b8b4ac",
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
+                    <MentionText text={body} mentions={resolvedMentions} />
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
 
