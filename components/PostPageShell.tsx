@@ -107,6 +107,42 @@ function linkHost(value: string | null | undefined) {
   }
 }
 
+function getYouTubeEmbedUrl(value: string | null | undefined) {
+  if (!value) return null;
+
+  try {
+    const url = new URL(value);
+    const host = url.hostname.replace(/^www\./i, "").toLowerCase();
+    let videoId = "";
+
+    if (host === "youtu.be") {
+      videoId = url.pathname.slice(1);
+    } else if (
+      host === "youtube.com" ||
+      host === "m.youtube.com" ||
+      host === "music.youtube.com"
+    ) {
+      if (url.pathname === "/watch") {
+        videoId = url.searchParams.get("v") ?? "";
+      } else if (url.pathname.startsWith("/shorts/")) {
+        videoId = url.pathname.split("/")[2] ?? "";
+      } else if (url.pathname.startsWith("/embed/")) {
+        videoId = url.pathname.split("/")[2] ?? "";
+      }
+    }
+
+    const normalizedVideoId = videoId.trim();
+
+    if (!/^[a-zA-Z0-9_-]{11}$/.test(normalizedVideoId)) {
+      return null;
+    }
+
+    return `https://www.youtube-nocookie.com/embed/${normalizedVideoId}?rel=0`;
+  } catch {
+    return null;
+  }
+}
+
 function voteDirection(value: 1 | -1 | null | undefined) {
   return value === 1 ? "up" : value === -1 ? "dn" : null;
 }
@@ -1526,6 +1562,7 @@ export default function PostPageShell({
   const sortedComments = sortComments(post.comments, commentSort);
   const visibleComments = sortedComments.slice(0, visibleCommentCount);
   const hasMoreComments = sortedComments.length > visibleCommentCount;
+  const youtubeEmbedUrl = getYouTubeEmbedUrl(post.url);
   const { parentMap: commentParentMap, rootMap: commentRootMap } =
     buildCommentMaps(post.comments);
 
@@ -1935,7 +1972,32 @@ export default function PostPageShell({
                     </a>
                   ) : null}
 
-                  {post.imageUrl ? (
+                  {youtubeEmbedUrl ? (
+                    <div
+                      style={{
+                        marginBottom: 22,
+                        borderRadius: 16,
+                        overflow: "hidden",
+                        border: "1px solid #1f1f1f",
+                        background: "#111010",
+                        aspectRatio: "16 / 9",
+                      }}
+                    >
+                      <iframe
+                        src={youtubeEmbedUrl}
+                        title={post.title}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          border: "none",
+                          display: "block",
+                        }}
+                      />
+                    </div>
+                  ) : post.imageUrl ? (
                     <a
                       href={post.imageUrl}
                       target="_blank"
