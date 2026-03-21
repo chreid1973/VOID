@@ -1290,12 +1290,14 @@ export default function PostPageShell({
   post,
   communities,
   railPosts,
+  backHref,
   renderedAt,
   currentUser,
 }: {
   post: PostData;
   communities: CommunityItem[];
   railPosts: RailPost[];
+  backHref: string;
   renderedAt: string;
   currentUser: {
     username: string;
@@ -1324,9 +1326,6 @@ export default function PostPageShell({
   const [editingPost, setEditingPost] = useState(false);
   const [postBody, setPostBody] = useState("");
   const [postPending, setPostPending] = useState(false);
-  const backHref = post.community.name
-    ? `/feed?community=${encodeURIComponent(post.community.name)}`
-    : "/feed";
   const sortedComments = sortComments(post.comments, commentSort);
   const visibleComments = sortedComments.slice(0, visibleCommentCount);
   const hasMoreComments = sortedComments.length > visibleCommentCount;

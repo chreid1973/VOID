@@ -31,6 +31,25 @@ function formatUserVote(value: number | null | undefined): 1 | -1 | null {
   return value === 1 ? 1 : value === -1 ? -1 : null;
 }
 
+function firstParam(value?: string | string[]) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function resolveBackHref(
+  communityName: string,
+  fromValue?: string | string[]
+) {
+  const from = firstParam(fromValue)?.trim();
+
+  if (from?.startsWith("/feed")) {
+    return from;
+  }
+
+  return communityName
+    ? `/feed?community=${encodeURIComponent(communityName)}`
+    : "/feed";
+}
+
 type LoadedComment = {
   id: string;
   parentId: string | null;
@@ -75,8 +94,10 @@ function buildCommentTree(
 
 export default async function PostPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams?: { from?: string | string[] };
 }) {
   const renderedAt = new Date().toISOString();
   const user = await getCurrentUser();
@@ -125,8 +146,9 @@ export default async function PostPage({
 
   if (!post) return notFound();
   if (post.isHidden && !isAdmin) return notFound();
+  const backHref = resolveBackHref(post.community.name, searchParams?.from);
   if (params.id !== post.publicId) {
-    permanentRedirect(`/p/${post.publicId}`);
+    permanentRedirect(`/p/${post.publicId}?from=${encodeURIComponent(backHref)}`);
   }
   const [comments, communities, railPosts] = await Promise.all([
     prisma.comment.findMany({
@@ -290,6 +312,7 @@ export default async function PostPage({
       post={formattedPost}
       communities={formattedCommunities}
       railPosts={formattedRailPosts}
+      backHref={backHref}
       renderedAt={renderedAt}
       currentUser={
         user

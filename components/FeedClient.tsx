@@ -235,6 +235,7 @@ function PostCard({
   p,
   idx,
   communities,
+  postHref,
   canReport,
   onVoteError,
   onActionNotice,
@@ -242,6 +243,7 @@ function PostCard({
   p: FeedPost;
   idx: number;
   communities: FeedCommunity[];
+  postHref: (publicId: string) => string;
   canReport: boolean;
   onVoteError: (message: string) => void;
   onActionNotice: (notice: ActionNoticeState) => void;
@@ -308,7 +310,7 @@ function PostCard({
 
           {p.crosspostSource ? (
             <Link
-              href={`/p/${p.crosspostSource.publicId}`}
+              href={postHref(p.crosspostSource.publicId)}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -330,7 +332,7 @@ function PostCard({
           ) : null}
 
           <Link
-            href={`/p/${p.publicId}`}
+            href={postHref(p.publicId)}
             aria-label={`Open post: ${p.title}`}
             style={{ display: "block", textDecoration: "none", color: "inherit" }}
           >
@@ -406,7 +408,7 @@ function PostCard({
 
           <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
             <Link
-              href={`/p/${p.publicId}`}
+              href={postHref(p.publicId)}
               className="act"
               style={{ textDecoration: "none" }}
               onClick={(e) => e.stopPropagation()}
@@ -453,10 +455,12 @@ function RightRail({
   posts,
   trendingPosts,
   communities,
+  postHref,
 }: {
   posts: FeedPost[];
   trendingPosts: FeedRailPost[];
   communities: FeedCommunity[];
+  postHref: (publicId: string) => string;
 }) {
   return (
     <aside className="feed-right">
@@ -508,7 +512,7 @@ function RightRail({
         {trendingPosts.map((p, i) => (
           <Link
             key={p.id}
-            href={`/p/${p.publicId}`}
+            href={postHref(p.publicId)}
             style={{
               display: "flex",
               gap: 10,
@@ -667,6 +671,12 @@ export default function FeedClient({
         (community) => norm(community.name) === norm(initialSelectedCommunity)
       ) ?? null
     : null;
+  const currentFeedHref = (() => {
+    const currentQuery = searchParams.toString();
+    return currentQuery ? `${pathname}?${currentQuery}` : pathname;
+  })();
+  const postHref = (publicId: string) =>
+    `/p/${publicId}?from=${encodeURIComponent(currentFeedHref)}`;
 
   useEffect(() => {
     setQ(initialQuery);
@@ -884,6 +894,7 @@ export default function FeedClient({
                   p={p}
                   idx={i}
                   communities={communities}
+                  postHref={postHref}
                   canReport={Boolean(currentUser)}
                   onVoteError={(message) =>
                     setActionNotice({ tone: "error", message })
@@ -957,6 +968,7 @@ export default function FeedClient({
           posts={initialPosts}
           trendingPosts={railPosts}
           communities={communities}
+          postHref={postHref}
         />
       </div>
     </div>
