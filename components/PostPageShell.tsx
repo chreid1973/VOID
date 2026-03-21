@@ -1918,7 +1918,7 @@ export default function PostPageShell({
 
                   {post.bodyHtml ? (
                     <div style={{ marginBottom: 22 }}>
-                      <RichPostBody html={post.bodyHtml} />
+                      <RichPostBody html={post.bodyHtml} mentions={post.mentions} />
                     </div>
                   ) : post.body ? (
                     <p
