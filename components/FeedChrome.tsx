@@ -526,7 +526,7 @@ export function FeedSidebar(props: FeedSidebarProps) {
 
       <div style={{ marginTop: 28, padding: "0 10px" }}>
         <p style={{ fontSize: 10, color: "#5f5a54", lineHeight: 1.7 }}>
-          © 2026 Void — a better internet
+          © 2026 Social Void - a better internet
           <br />
           Privacy · Terms · Help · Careers ·{" "}
           <Link
