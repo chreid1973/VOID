@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/auth";
 import { deleteObject, extractStoredR2Key } from "@/r2";
+import { appendPlainTextToRichHtml, plainTextToRichHtml } from "@/lib/richText";
 
 type Params = { params: { id: string } };
 
@@ -13,6 +14,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       select: {
         authorId: true,
         body: true,
+        bodyHtml: true,
       },
     });
 
@@ -37,13 +39,18 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       .replace("T", " ")
       .replace(/\.\d{3}Z$/, " UTC");
     const appendedUpdate = `EDIT: ${timestamp}\n${update}`;
+    const nextBody = post.body
+      ? `${post.body}\n\n${appendedUpdate}`
+      : appendedUpdate;
 
     await prisma.post.update({
       where: { id: params.id },
       data: {
-        body: post.body
-          ? `${post.body}\n\n${appendedUpdate}`
-          : appendedUpdate,
+        body: nextBody,
+        bodyHtml: appendPlainTextToRichHtml(
+          post.bodyHtml ?? plainTextToRichHtml(post.body),
+          appendedUpdate
+        ),
       },
     });
 

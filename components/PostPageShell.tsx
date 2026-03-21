@@ -9,6 +9,7 @@ import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
 import MentionAutocompleteMenu from "./MentionAutocompleteMenu";
 import MentionText from "./MentionText";
 import ReportAction from "./ReportAction";
+import RichPostBody from "./RichPostBody";
 import SavePostButton from "./SavePostButton";
 import { useMentionAutocomplete } from "./useMentionAutocomplete";
 import { useResolvedMentions } from "./useResolvedMentions";
@@ -61,6 +62,7 @@ type PostData = {
   publicId: string;
   title: string;
   body: string | null;
+  bodyHtml: string | null;
   url: string | null;
   imageUrl: string | null;
   mentions: string[];
@@ -1914,7 +1916,11 @@ export default function PostPageShell({
                       <MentionText text={post.title} mentions={post.mentions} />
                     </h1>
 
-                  {post.body ? (
+                  {post.bodyHtml ? (
+                    <div style={{ marginBottom: 22 }}>
+                      <RichPostBody html={post.bodyHtml} />
+                    </div>
+                  ) : post.body ? (
                     <p
                       style={{
                         fontSize: 15,
@@ -1924,8 +1930,8 @@ export default function PostPageShell({
                         whiteSpace: "pre-wrap",
                       }}
                     >
-                        <MentionText text={post.body} mentions={post.mentions} />
-                      </p>
+                      <MentionText text={post.body} mentions={post.mentions} />
+                    </p>
                   ) : null}
 
                   {post.url ? (

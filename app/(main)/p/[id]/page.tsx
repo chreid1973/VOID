@@ -248,6 +248,7 @@ export default async function PostPage({
     publicId: post.publicId,
     title: post.title,
     body: post.body,
+    bodyHtml: post.bodyHtml,
     url: post.url,
     imageUrl: post.imageKey ? resolveStoredImageUrl(post.imageKey) : null,
     mentions: filterMentionUsernames(

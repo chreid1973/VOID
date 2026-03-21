@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import MentionAutocompleteMenu from "@/components/MentionAutocompleteMenu";
 import MentionText from "@/components/MentionText";
+import RichPostEditor from "@/components/RichPostEditor";
 import { useMentionAutocomplete } from "@/components/useMentionAutocomplete";
 import { useResolvedMentions } from "@/components/useResolvedMentions";
 
@@ -71,11 +72,11 @@ export default function SubmitForm({
   const router = useRouter();
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
-  const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const isCrosspost = Boolean(crosspostSource);
 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [bodyHtml, setBodyHtml] = useState("");
   const [url, setUrl] = useState("");
   const [communityId, setCommunityId] = useState(
     crosspostSource
@@ -92,7 +93,6 @@ export default function SubmitForm({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [titleSelection, setTitleSelection] = useState({ start: 0, end: 0 });
-  const [bodySelection, setBodySelection] = useState({ start: 0, end: 0 });
   const [includeLinkPreviewDescription, setIncludeLinkPreviewDescription] =
     useState(false);
   const [includeLinkPreviewImage, setIncludeLinkPreviewImage] = useState(false);
@@ -113,17 +113,6 @@ export default function SubmitForm({
     onInsert: (nextText, nextCursor) => {
       setTitle(nextText);
       setTitleSelection({ start: nextCursor, end: nextCursor });
-      if (previewMessage) setPreviewMessage(null);
-      if (submitError) setSubmitError(null);
-    },
-  });
-  const bodyMentionAutocomplete = useMentionAutocomplete({
-    text: body,
-    selection: bodySelection,
-    inputRef: bodyTextareaRef,
-    onInsert: (nextText, nextCursor) => {
-      setBody(nextText);
-      setBodySelection({ start: nextCursor, end: nextCursor });
       if (previewMessage) setPreviewMessage(null);
       if (submitError) setSubmitError(null);
     },
@@ -322,6 +311,7 @@ export default function SubmitForm({
         body: JSON.stringify({
           title,
           body,
+          bodyHtml,
           url,
           communityId,
           imageKey: uploadedImageKey,
@@ -769,53 +759,28 @@ export default function SubmitForm({
       {isCrosspost ? null : (
         <div>
           <label style={labelStyle}>Body</label>
-          <textarea
-            ref={bodyTextareaRef}
-            placeholder="Add optional text, context, or a rant for the ages..."
-            value={body}
+          <RichPostEditor
+            value={bodyHtml}
             disabled={loading}
-            onChange={(e) => {
-              setBody(e.target.value);
-              setBodySelection({
-                start: e.currentTarget.selectionStart,
-                end: e.currentTarget.selectionEnd,
-              });
+            placeholder="Add optional context, formatting, or a rant for the ages..."
+            onChange={({ html, text }) => {
+              setBodyHtml(html);
+              setBody(text);
               if (previewMessage) setPreviewMessage(null);
               if (submitError) setSubmitError(null);
             }}
-            onSelect={(e) => {
-              setBodySelection({
-                start: e.currentTarget.selectionStart,
-                end: e.currentTarget.selectionEnd,
-              });
-            }}
-            onClick={(e) => {
-              setBodySelection({
-                start: e.currentTarget.selectionStart,
-                end: e.currentTarget.selectionEnd,
-              });
-            }}
-            onKeyDown={bodyMentionAutocomplete.handleKeyDown}
-            onBlur={() => {
-              bodyMentionAutocomplete.closeMenu();
-            }}
-            rows={8}
+          />
+          <p
             style={{
-              ...inputStyle,
-              resize: "vertical",
-              minHeight: 180,
-              lineHeight: 1.6,
-              opacity: loading ? 0.7 : 1,
+              fontSize: 12,
+              color: "#6f6963",
+              lineHeight: 1.5,
+              marginTop: 8,
             }}
-          />
-
-          <MentionAutocompleteMenu
-            loading={bodyMentionAutocomplete.loading}
-            query={bodyMentionAutocomplete.activeQuery}
-            suggestions={bodyMentionAutocomplete.suggestions}
-            highlightedIndex={bodyMentionAutocomplete.highlightedIndex}
-            onSelect={bodyMentionAutocomplete.selectSuggestion}
-          />
+          >
+            Limited formatting for now: bold, italic, quotes, bullet lists, inline
+            code, and links.
+          </p>
 
           {mentionedUsernames.length > 0 ? (
             <div

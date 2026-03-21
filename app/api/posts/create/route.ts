@@ -10,6 +10,11 @@ import {
 import { extractStoredR2Key } from "../../../../r2";
 import { createPostPublicId } from "../../../../lib/postPublicId";
 import { createPostMentionNotifications } from "../../../../lib/notifications";
+import {
+  appendPlainTextToRichHtml,
+  plainTextToRichHtml,
+  sanitizePostBodyHtml,
+} from "../../../../lib/richText";
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -22,6 +27,7 @@ export async function POST(req: Request) {
   const {
     title,
     body,
+    bodyHtml,
     communityId,
     imageKey,
     url,
@@ -31,6 +37,7 @@ export async function POST(req: Request) {
   } = json as {
     title?: string;
     body?: string;
+    bodyHtml?: string;
     communityId?: string;
     imageKey?: string;
     url?: string;
@@ -59,6 +66,7 @@ export async function POST(req: Request) {
 
   const trimmedTitle = title?.trim() || "";
   const trimmedBody = body?.trim() || null;
+  const trimmedBodyHtml = sanitizePostBodyHtml(bodyHtml);
   const trimmedCommunityId = communityId.trim();
   const trimmedImageKey = imageKey?.trim() || null;
   const trimmedUrl = url?.trim() || null;
@@ -69,7 +77,11 @@ export async function POST(req: Request) {
 
   if (
     trimmedCrosspostOfPostId &&
-    (trimmedImageKey || trimmedUrl || trimmedTitle || trimmedBody)
+    (trimmedImageKey ||
+      trimmedUrl ||
+      trimmedTitle ||
+      trimmedBody ||
+      trimmedBodyHtml)
   ) {
     return NextResponse.json(
       { error: "Crossposts reuse the original post content." },
@@ -107,6 +119,7 @@ export async function POST(req: Request) {
         id: string;
         title: string;
         body: string | null;
+        bodyHtml: string | null;
         url: string | null;
         imageKey: string | null;
         type: PostType;
@@ -123,6 +136,7 @@ export async function POST(req: Request) {
         id: true,
         title: true,
         body: true,
+        bodyHtml: true,
         url: true,
         imageKey: true,
         type: true,
@@ -158,6 +172,7 @@ export async function POST(req: Request) {
               id: true,
               title: true,
               body: true,
+              bodyHtml: true,
               url: true,
               imageKey: true,
               type: true,
@@ -180,6 +195,13 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+  }
+
+  if (trimmedBodyHtml && !trimmedBody) {
+    return NextResponse.json(
+      { error: "Body text could not be processed." },
+      { status: 400 }
+    );
   }
 
   if (trimmedUrl) {
@@ -212,6 +234,14 @@ export async function POST(req: Request) {
       ? `${trimmedBody}\n\n${scrapedDescription}`
       : trimmedBody ||
         (shouldIncludeLinkPreviewDescription ? scrapedDescription : null);
+  const finalBodyHtml = crosspostSource
+    ? crosspostSource.bodyHtml ?? plainTextToRichHtml(crosspostSource.body)
+    : shouldIncludeLinkPreviewDescription
+      ? appendPlainTextToRichHtml(
+          trimmedBodyHtml ?? plainTextToRichHtml(trimmedBody),
+          scrapedDescription
+        )
+      : trimmedBodyHtml ?? plainTextToRichHtml(trimmedBody);
   const storedImageKey = crosspostSource
     ? crosspostSource.imageKey
     : trimmedImageKey || (shouldIncludeLinkPreviewImage ? scrapedImageUrl : null);
@@ -241,6 +271,7 @@ export async function POST(req: Request) {
             publicId: createPostPublicId(),
             title: finalTitle,
             body: finalBody,
+            bodyHtml: finalBodyHtml,
             url: finalUrl,
             imageKey: storedImageKey,
             type: finalType,

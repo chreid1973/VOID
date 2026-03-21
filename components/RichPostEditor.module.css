@@ -1,0 +1,123 @@
+.wrapper {
+  border: 1px solid #252424;
+  border-radius: 12px;
+  background: #111010;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.wrapper:focus-within {
+  border-color: rgba(255, 72, 38, 0.38);
+  box-shadow: 0 0 0 1px rgba(255, 72, 38, 0.15);
+}
+
+.disabled {
+  opacity: 0.7;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #252424;
+  background: #161515;
+}
+
+.toolbarButton {
+  border: 1px solid #2a2726;
+  border-radius: 8px;
+  background: #141313;
+  color: #d4cec6;
+  font-family: var(--font-outfit), sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.toolbarButton:hover:not(:disabled) {
+  border-color: #47413c;
+  background: #1a1918;
+}
+
+.toolbarButtonActive {
+  border-color: rgba(255, 72, 38, 0.4);
+  background: rgba(255, 72, 38, 0.12);
+  color: #ffe6df;
+}
+
+.toolbarButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.editor {
+  padding: 14px 16px;
+}
+
+.editor :global(.ProseMirror) {
+  min-height: 180px;
+  outline: none;
+  color: #e6e1da;
+  font-family: var(--font-outfit), sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.editor :global(.ProseMirror p),
+.editor :global(.ProseMirror blockquote),
+.editor :global(.ProseMirror ul) {
+  margin: 0 0 0.9em;
+}
+
+.editor :global(.ProseMirror p:last-child),
+.editor :global(.ProseMirror blockquote:last-child),
+.editor :global(.ProseMirror ul:last-child) {
+  margin-bottom: 0;
+}
+
+.editor :global(.ProseMirror ul) {
+  padding-left: 1.25em;
+}
+
+.editor :global(.ProseMirror li + li) {
+  margin-top: 0.32em;
+}
+
+.editor :global(.ProseMirror blockquote) {
+  border-left: 2px solid #2d2a28;
+  padding-left: 14px;
+  color: #cbc4bb;
+}
+
+.editor :global(.ProseMirror code) {
+  display: inline-block;
+  padding: 0.08em 0.36em;
+  border-radius: 6px;
+  border: 1px solid #2a2726;
+  background: #171616;
+  color: #f0ebe5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92em;
+}
+
+.editor :global(.ProseMirror a) {
+  color: #ff8a57;
+  text-decoration: none;
+}
+
+.editor :global(.ProseMirror a:hover) {
+  text-decoration: underline;
+}
+
+.editor :global(.ProseMirror p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder);
+  color: #6f6963;
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

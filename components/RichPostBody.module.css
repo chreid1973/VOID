@@ -1,0 +1,51 @@
+.body {
+  font-size: 15px;
+  line-height: 1.78;
+  color: #8a8682;
+}
+
+.body :global(p),
+.body :global(blockquote),
+.body :global(ul) {
+  margin: 0 0 1em;
+}
+
+.body :global(p:last-child),
+.body :global(blockquote:last-child),
+.body :global(ul:last-child) {
+  margin-bottom: 0;
+}
+
+.body :global(a) {
+  color: #ff8a57;
+  text-decoration: none;
+}
+
+.body :global(a:hover) {
+  text-decoration: underline;
+}
+
+.body :global(blockquote) {
+  border-left: 2px solid #2d2a28;
+  padding-left: 14px;
+  color: #c9c2b9;
+}
+
+.body :global(ul) {
+  padding-left: 1.2em;
+}
+
+.body :global(li + li) {
+  margin-top: 0.35em;
+}
+
+.body :global(code) {
+  display: inline-block;
+  padding: 0.08em 0.38em;
+  border-radius: 6px;
+  border: 1px solid #2a2726;
+  background: #171616;
+  color: #f0ebe5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92em;
+}

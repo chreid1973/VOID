@@ -86,6 +86,7 @@ model Post {
   publicId     String   @unique
   title        String
   body         String?
+  bodyHtml     String?
   url          String?
   imageKey     String?
   type         PostType @default(TEXT)
