@@ -38,6 +38,8 @@ model User {
   moderationIssued   ModerationAction[] @relation("ModerationActionsIssued")
   following         UserFollow[] @relation("UserFollowing")
   followers         UserFollow[] @relation("UserFollowers")
+  notificationsReceived Notification[] @relation("NotificationsReceived")
+  notificationsSent     Notification[] @relation("NotificationsSent")
 
   @@index([clerkId])
   @@index([username])
@@ -107,6 +109,7 @@ model Post {
   votes     Vote[]
   saves     SavedPost[]
   reports   Report[]
+  notifications Notification[]
   crosspostOf Post?   @relation("Crossposts", fields: [crosspostOfPostId], references: [id], onDelete: SetNull)
   crossposts Post[]   @relation("Crossposts")
 
@@ -142,6 +145,7 @@ model Comment {
   replies Comment[] @relation("Replies")
   votes   Vote[]
   reports Report[]
+  notifications Notification[]
 
   @@index([postId, createdAt])
   @@index([parentId])
@@ -238,6 +242,27 @@ model ModerationAction {
   @@index([reportId])
 }
 
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  createdAt DateTime         @default(now())
+  readAt    DateTime?
+  userId    String
+  actorId   String
+  postId    String
+  commentId String?
+
+  user    User     @relation("NotificationsReceived", fields: [userId], references: [id], onDelete: Cascade)
+  actor   User     @relation("NotificationsSent", fields: [actorId], references: [id], onDelete: Cascade)
+  post    Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@index([actorId, createdAt])
+  @@index([postId, createdAt])
+  @@index([commentId, createdAt])
+}
+
 enum ReportTargetType {
   POST
   COMMENT
@@ -264,4 +289,11 @@ enum ModerationActionType {
   DELETE_POST
   HIDE_COMMENT
   DELETE_COMMENT
+}
+
+enum NotificationType {
+  COMMENT_ON_POST
+  REPLY_TO_COMMENT
+  MENTION_IN_POST
+  MENTION_IN_COMMENT
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "../../../../lib/prisma";
+import { createCommentNotifications } from "../../../../lib/notifications";
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -38,10 +39,25 @@ export async function POST(req: Request) {
     );
   }
 
+  const post = await prisma.post.findUnique({
+    where: { id: trimmedPostId },
+    select: { id: true, authorId: true, isLocked: true },
+  });
+
+  if (!post) {
+    return NextResponse.json({ error: "Post not found." }, { status: 404 });
+  }
+
+  if (post.isLocked) {
+    return NextResponse.json({ error: "Post is locked." }, { status: 403 });
+  }
+
+  let parentAuthorId: string | null = null;
+
   if (trimmedParentId) {
     const parent = await prisma.comment.findUnique({
       where: { id: trimmedParentId },
-      select: { postId: true },
+      select: { postId: true, authorId: true },
     });
 
     if (!parent || parent.postId !== trimmedPostId) {
@@ -50,6 +66,8 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    parentAuthorId = parent.authorId;
   }
 
   await prisma.$transaction(async (tx) => {
@@ -78,6 +96,15 @@ export async function POST(req: Request) {
           increment: 1,
         },
       },
+    });
+
+    await createCommentNotifications(tx, {
+      actorUserId: user.id,
+      postId: trimmedPostId,
+      commentId: comment.id,
+      body: trimmedBody,
+      postAuthorId: post.authorId,
+      parentAuthorId,
     });
   });
 

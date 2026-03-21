@@ -4,6 +4,7 @@ import { prisma } from "../../../../lib/prisma";
 import { loadTrendingRailPosts } from "../../../../lib/trendingRail";
 import PostPageShell from "../../../../components/PostPageShell";
 import { resolveStoredImageUrl } from "../../../../r2";
+import { filterMentionUsernames, loadExistingMentionUsernames } from "../../../../lib/mentions";
 
 function timeAgo(date: Date | string) {
   const timestamp = date instanceof Date ? date.getTime() : new Date(date).getTime();
@@ -54,6 +55,7 @@ type LoadedComment = {
   id: string;
   parentId: string | null;
   body: string;
+  mentions: string[];
   score: number;
   userVote: 1 | -1 | null;
   isHidden: boolean;
@@ -187,7 +189,7 @@ export default async function PostPage({
 
     loadTrendingRailPosts(5, post.id),
   ]);
-  const [postVote, commentVotes, savedPost] = user
+  const [postVote, commentVotes, savedPost, unreadNotificationCount] = user
     ? await Promise.all([
         prisma.vote.findUnique({
           where: {
@@ -223,11 +225,23 @@ export default async function PostPage({
             id: true,
           },
         }),
+        prisma.notification.count({
+          where: {
+            userId: user.id,
+            readAt: null,
+          },
+        }),
       ])
-    : [null, [], null];
+    : [null, [], null, 0];
   const commentVoteMap = new Map(
     commentVotes.map((vote) => [vote.commentId as string, vote.value])
   );
+  const validMentionUsernames = await loadExistingMentionUsernames([
+    post.title,
+    post.body,
+    ...comments.map((comment) => comment.body),
+  ]);
+  const validMentionSet = new Set(validMentionUsernames);
 
   const formattedPost = {
     id: post.id,
@@ -236,6 +250,10 @@ export default async function PostPage({
     body: post.body,
     url: post.url,
     imageUrl: post.imageKey ? resolveStoredImageUrl(post.imageKey) : null,
+    mentions: filterMentionUsernames(
+      [post.title, post.body].filter(Boolean).join("\n"),
+      validMentionSet
+    ),
     createdAt: post.createdAt.toISOString(),
     score: post.score,
     userVote: formatUserVote(postVote?.value),
@@ -270,6 +288,7 @@ export default async function PostPage({
         id: comment.id,
         parentId: comment.parentId,
         body: comment.body,
+        mentions: filterMentionUsernames(comment.body, validMentionSet),
         score: comment.score,
         userVote: formatUserVote(commentVoteMap.get(comment.id)),
         isHidden: comment.isHidden,
@@ -314,6 +333,7 @@ export default async function PostPage({
       railPosts={formattedRailPosts}
       backHref={backHref}
       renderedAt={renderedAt}
+      notificationUnreadCount={unreadNotificationCount}
       currentUser={
         user
           ? {

@@ -37,10 +37,12 @@ type FeedTopBarProps =
       onSortChange: (sort: FeedSort) => void;
       onHomeClick: () => void;
       currentUser: TopBarCurrentUser | null;
+      notificationUnreadCount: number;
     }
   | {
       mode: "post";
       currentUser: TopBarCurrentUser | null;
+      notificationUnreadCount: number;
     };
 
 type FeedSidebarProps =
@@ -249,30 +251,83 @@ export function FeedTopBar(props: FeedTopBarProps) {
 
       <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
         {props.currentUser ? (
-          <Link
-            href={`/u/${encodeURIComponent(props.currentUser.username)}`}
-            style={{
-              background: "none",
-              border: "1px solid #252424",
-              borderRadius: 8,
-              color: "#d8d2ca",
-              fontFamily: "var(--font-outfit), sans-serif",
-              fontSize: 12.5,
-              fontWeight: 600,
-              padding: "6px 14px",
-              cursor: "pointer",
-              transition: "all .15s",
-              letterSpacing: ".02em",
-              textDecoration: "none",
-            }}
-            title={
-              props.currentUser.displayName
-                ? `${props.currentUser.displayName} · u/${props.currentUser.username}`
-                : `u/${props.currentUser.username}`
-            }
-          >
-            u/{props.currentUser.username}
-          </Link>
+          <>
+            <Link
+              href="/notifications"
+              style={{
+                position: "relative",
+                background: "none",
+                border: "1px solid #252424",
+                borderRadius: 8,
+                color: "#d8d2ca",
+                fontFamily: "var(--font-outfit), sans-serif",
+                fontSize: 13,
+                fontWeight: 600,
+                padding: "6px 12px",
+                cursor: "pointer",
+                transition: "all .15s",
+                letterSpacing: ".02em",
+                textDecoration: "none",
+                minWidth: 42,
+                textAlign: "center",
+              }}
+              title={
+                props.notificationUnreadCount > 0
+                  ? `${props.notificationUnreadCount} unread notifications`
+                  : "Notifications"
+              }
+            >
+              🔔
+              {props.notificationUnreadCount > 0 ? (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: -6,
+                    right: -6,
+                    minWidth: 18,
+                    height: 18,
+                    borderRadius: 999,
+                    background: "#ff4826",
+                    color: "#fff",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    lineHeight: "18px",
+                    padding: "0 5px",
+                    boxShadow: "0 2px 10px rgba(255,72,38,.28)",
+                  }}
+                >
+                  {props.notificationUnreadCount > 99
+                    ? "99+"
+                    : props.notificationUnreadCount}
+                </span>
+              ) : null}
+            </Link>
+
+            <Link
+              href={`/u/${encodeURIComponent(props.currentUser.username)}`}
+              style={{
+                background: "none",
+                border: "1px solid #252424",
+                borderRadius: 8,
+                color: "#d8d2ca",
+                fontFamily: "var(--font-outfit), sans-serif",
+                fontSize: 12.5,
+                fontWeight: 600,
+                padding: "6px 14px",
+                cursor: "pointer",
+                transition: "all .15s",
+                letterSpacing: ".02em",
+                textDecoration: "none",
+              }}
+              title={
+                props.currentUser.displayName
+                  ? `${props.currentUser.displayName} · u/${props.currentUser.username}`
+                  : `u/${props.currentUser.username}`
+              }
+            >
+              u/{props.currentUser.username}
+            </Link>
+          </>
         ) : props.mode === "feed" ? (
           <>
             <Link

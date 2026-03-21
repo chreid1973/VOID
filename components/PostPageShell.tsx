@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import "../app/(main)/feed/feed.css";
 import { ActionNotice, type ActionNoticeState } from "./ActionNotice";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
+import MentionText from "./MentionText";
 import ReportAction from "./ReportAction";
 import SavePostButton from "./SavePostButton";
 
@@ -35,6 +36,7 @@ type RailPost = {
 type PostComment = {
   id: string;
   body: string;
+  mentions: string[];
   score: number;
   userVote: 1 | -1 | null;
   isHidden: boolean;
@@ -57,6 +59,7 @@ type PostData = {
   body: string | null;
   url: string | null;
   imageUrl: string | null;
+  mentions: string[];
   createdAt: string;
   score: number;
   userVote: 1 | -1 | null;
@@ -1146,12 +1149,14 @@ function CommentNode({
               whiteSpace: "pre-wrap",
             }}
           >
-            {comment.isDeleted
-              ? "[deleted]"
-              : comment.isHidden
-                ? "[removed by moderators]"
-                : comment.body}
-          </p>
+              {comment.isDeleted ? (
+                "[deleted]"
+              ) : comment.isHidden ? (
+                "[removed by moderators]"
+              ) : (
+                <MentionText text={comment.body} mentions={comment.mentions} />
+              )}
+            </p>
 
           <div
             style={{
@@ -1292,6 +1297,7 @@ export default function PostPageShell({
   railPosts,
   backHref,
   renderedAt,
+  notificationUnreadCount,
   currentUser,
 }: {
   post: PostData;
@@ -1299,6 +1305,7 @@ export default function PostPageShell({
   railPosts: RailPost[];
   backHref: string;
   renderedAt: string;
+  notificationUnreadCount: number;
   currentUser: {
     username: string;
     displayName: string | null;
@@ -1545,7 +1552,11 @@ export default function PostPageShell({
     <div className="feed-shell">
       {actionNotice ? <ActionNotice {...actionNotice} /> : null}
 
-      <FeedTopBar mode="post" currentUser={currentUser} />
+      <FeedTopBar
+        mode="post"
+        currentUser={currentUser}
+        notificationUnreadCount={notificationUnreadCount}
+      />
 
       <div className="feed-container">
         <FeedSidebar
@@ -1695,7 +1706,9 @@ export default function PostPageShell({
                 </form>
               ) : (
                 <>
-                  <h1 className="detail-title">{post.title}</h1>
+                    <h1 className="detail-title">
+                      <MentionText text={post.title} mentions={post.mentions} />
+                    </h1>
 
                   {post.body ? (
                     <p
@@ -1707,8 +1720,8 @@ export default function PostPageShell({
                         whiteSpace: "pre-wrap",
                       }}
                     >
-                      {post.body}
-                    </p>
+                        <MentionText text={post.body} mentions={post.mentions} />
+                      </p>
                   ) : null}
 
                   {post.url ? (

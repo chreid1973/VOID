@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/auth";
+import { createCommentNotifications } from "@/lib/notifications";
 
 type Params = { params: { id: string } };
 
@@ -47,43 +48,63 @@ export async function POST(req: NextRequest, { params }: Params) {
     const user = await requireUser();
 
     // Post must exist
-    const post = await prisma.post.findUnique({ where: { id: params.id } });
+    const post = await prisma.post.findUnique({
+      where: { id: params.id },
+      select: { id: true, authorId: true, isLocked: true },
+    });
     if (!post) return NextResponse.json({ error: "Post not found" }, { status: 404 });
     if (post.isLocked) return NextResponse.json({ error: "Post is locked" }, { status: 403 });
 
     const { body, parentId } = createSchema.parse(await req.json());
 
+    let parentAuthorId: string | null = null;
+
     // If replying, parent must belong to same post
     if (parentId) {
-      const parent = await prisma.comment.findUnique({ where: { id: parentId } });
+      const parent = await prisma.comment.findUnique({
+        where: { id: parentId },
+        select: { postId: true, authorId: true },
+      });
       if (!parent || parent.postId !== params.id) {
         return NextResponse.json({ error: "Invalid parent comment" }, { status: 400 });
       }
+
+      parentAuthorId = parent.authorId;
     }
 
-    const [comment] = await prisma.$transaction([
-      prisma.comment.create({
+    const comment = await prisma.$transaction(async (tx) => {
+      const createdComment = await tx.comment.create({
         data: {
           body,
           parentId: parentId ?? null,
           authorId: user.id,
           postId: params.id,
-          score: 1, // auto-upvote own comment
+          score: 1,
         },
         include: {
           author: { select: { id: true, username: true, avatarUrl: true } },
         },
-      }),
-      // Increment cached comment count on post
-      prisma.post.update({
+      });
+
+      await tx.post.update({
         where: { id: params.id },
         data: { commentCount: { increment: 1 } },
-      }),
-    ]);
+      });
 
-    // Auto-upvote own comment
-    await prisma.vote.create({
-      data: { userId: user.id, commentId: comment.id, value: 1 },
+      await tx.vote.create({
+        data: { userId: user.id, commentId: createdComment.id, value: 1 },
+      });
+
+      await createCommentNotifications(tx, {
+        actorUserId: user.id,
+        postId: params.id,
+        commentId: createdComment.id,
+        body,
+        postAuthorId: post.authorId,
+        parentAuthorId,
+      });
+
+      return createdComment;
     });
 
     return NextResponse.json({ comment }, { status: 201 });

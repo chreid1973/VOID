@@ -7,6 +7,7 @@ import { prisma } from "../../../lib/prisma";
 import { compareRankedPosts, type FeedSort } from "../../../lib/postRanking";
 import { resolveStoredImageUrl } from "../../../r2";
 import { loadTrendingRailPosts } from "../../../lib/trendingRail";
+import { filterMentionUsernames, loadExistingMentionUsernames } from "../../../lib/mentions";
 
 const PAGE_SIZE = 20;
 const RANKING_CANDIDATE_LIMIT = 250;
@@ -85,7 +86,7 @@ export default async function FeedPage({
   const currentPage = parsePage(firstParam(searchParams?.page));
   const initialQuery = firstParam(searchParams?.q)?.trim() || "";
 
-  const [memberships, follows, communities, trendingRailPosts] = await Promise.all([
+  const [memberships, follows, communities, trendingRailPosts, unreadNotificationCount] = await Promise.all([
     user
       ? prisma.communityMember.findMany({
           where: { userId: user.id },
@@ -119,6 +120,14 @@ export default async function FeedPage({
       },
     }),
     loadTrendingRailPosts(5),
+    user
+      ? prisma.notification.count({
+          where: {
+            userId: user.id,
+            readAt: null,
+          },
+        })
+      : Promise.resolve(0),
   ]);
 
   const joinedCommunityIds = memberships.map((membership) => membership.communityId);
@@ -404,6 +413,10 @@ export default async function FeedPage({
     postVotes.map((vote) => [vote.postId as string, vote.value])
   );
   const savedPostIdSet = new Set(savedPosts.map((savedPost) => savedPost.postId));
+  const validMentionUsernames = await loadExistingMentionUsernames(
+    visiblePosts.flatMap((post) => [post.title, post.body])
+  );
+  const validMentionSet = new Set(validMentionUsernames);
 
   const formattedPosts = visiblePosts.map((post) => ({
     id: post.id,
@@ -417,6 +430,10 @@ export default async function FeedPage({
     authorUsername: post.author.username,
     votes: post.score ?? 0,
     comments: post.commentCount ?? 0,
+    mentions: filterMentionUsernames(
+      [post.title, post.body].filter(Boolean).join("\n"),
+      validMentionSet
+    ),
     time: timeAgo(post.createdAt),
     flair: post.flair,
     flairColor: post.flairColor,
@@ -469,6 +486,7 @@ export default async function FeedPage({
       isPersonalizedHome={isPersonalizedHome}
       followedAuthorCount={followedAuthorIds.length}
       railPosts={formattedRailPosts}
+      notificationUnreadCount={unreadNotificationCount}
       currentUser={
         user
           ? {

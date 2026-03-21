@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import "../app/(main)/feed/feed.css";
 import { ActionNotice, type ActionNoticeState } from "./ActionNotice";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
+import MentionText from "./MentionText";
 import ReportAction from "./ReportAction";
 import SavePostButton from "./SavePostButton";
 
@@ -22,6 +23,7 @@ type FeedPost = {
   votes: number;
   userVote: 1 | -1 | null;
   comments: number;
+  mentions: string[];
   time: string;
   flair?: string | null;
   flairColor?: string | null;
@@ -73,6 +75,7 @@ type FeedClientProps = {
   isPersonalizedHome: boolean;
   followedAuthorCount: number;
   railPosts: FeedRailPost[];
+  notificationUnreadCount: number;
   currentUser: {
     username: string;
     displayName: string | null;
@@ -337,7 +340,9 @@ function PostCard({
             style={{ display: "block", textDecoration: "none", color: "inherit" }}
           >
 
-            <h2 className="post-title">{p.title}</h2>
+            <h2 className="post-title">
+              <MentionText text={p.title} mentions={p.mentions} />
+            </h2>
 
             {p.url ? (
               <p
@@ -371,9 +376,9 @@ function PostCard({
                       WebkitBoxOrient: "vertical",
                       overflow: "hidden",
                     }}
-                  >
-                    {p.body}
-                  </p>
+                    >
+                      <MentionText text={p.body} mentions={p.mentions} />
+                    </p>
                 ) : null}
 
                 {p.imageUrl ? (
@@ -648,6 +653,7 @@ export default function FeedClient({
   isPersonalizedHome,
   followedAuthorCount,
   railPosts,
+  notificationUnreadCount,
   currentUser,
 }: FeedClientProps) {
   const router = useRouter();
@@ -784,6 +790,7 @@ export default function FeedClient({
         onSortChange={handleSortChange}
         onHomeClick={() => handleSelect(null)}
         currentUser={currentUser}
+        notificationUnreadCount={notificationUnreadCount}
       />
 
       <div className="feed-container">

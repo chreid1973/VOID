@@ -9,6 +9,7 @@ import {
 } from "../../../../lib/linkPreview";
 import { extractStoredR2Key } from "../../../../r2";
 import { createPostPublicId } from "../../../../lib/postPublicId";
+import { createPostMentionNotifications } from "../../../../lib/notifications";
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -261,6 +262,15 @@ export async function POST(req: Request) {
             value: 1,
           },
         });
+
+        if (!crosspostSource) {
+          await createPostMentionNotifications(tx, {
+            actorUserId: user.id,
+            postId: createdPost.id,
+            title: finalTitle,
+            body: finalBody,
+          });
+        }
 
         return createdPost;
       });
