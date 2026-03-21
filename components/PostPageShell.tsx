@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "../app/(main)/feed/feed.css";
 import { ActionNotice, type ActionNoticeState } from "./ActionNotice";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
@@ -1219,6 +1219,9 @@ function CommentNode({
         boxShadow: isHighlighted
           ? "inset 0 0 0 1px rgba(255, 72, 38, 0.24)"
           : "none",
+        animation: isHighlighted
+          ? "comment-target-blink 0.55s ease-in-out 3"
+          : "none",
         transition: "background .18s ease, box-shadow .18s ease",
       }}
     >
@@ -1524,12 +1527,17 @@ export default function PostPageShell({
   const [editingPost, setEditingPost] = useState(false);
   const [postBody, setPostBody] = useState("");
   const [postPending, setPostPending] = useState(false);
-  const sortedComments = sortComments(post.comments, commentSort);
+  const sortedComments = useMemo(
+    () => sortComments(post.comments, commentSort),
+    [post.comments, commentSort]
+  );
   const visibleComments = sortedComments.slice(0, visibleCommentCount);
   const hasMoreComments = sortedComments.length > visibleCommentCount;
   const youtubeEmbedUrl = getYouTubeEmbedUrl(post.url);
-  const { parentMap: commentParentMap, rootMap: commentRootMap } =
-    buildCommentMaps(post.comments);
+  const { parentMap: commentParentMap, rootMap: commentRootMap } = useMemo(
+    () => buildCommentMaps(post.comments),
+    [post.comments]
+  );
 
   useEffect(() => {
     setNowMs(Date.now());
@@ -1617,6 +1625,7 @@ export default function PostPageShell({
         block: "center",
       });
       setHighlightedCommentId(hashTargetCommentId);
+      setHashTargetCommentId(null);
     }, 80);
 
     return () => window.clearTimeout(timeoutId);
@@ -1636,7 +1645,7 @@ export default function PostPageShell({
       setHighlightedCommentId((current) =>
         current === highlightedCommentId ? null : current
       );
-    }, 2200);
+    }, 1800);
 
     return () => window.clearTimeout(timeoutId);
   }, [highlightedCommentId]);
