@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import "../app/(main)/feed/feed.css";
 import { ActionNotice, type ActionNoticeState } from "./ActionNotice";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
@@ -1024,7 +1024,7 @@ function ReplyComposer({
   );
 }
 
-function CommentNode({
+const CommentNode = memo(function CommentNode({
   comment,
   postId,
   postPublicId,
@@ -1485,35 +1485,49 @@ function CommentNode({
       ) : null}
     </div>
   );
-}
+}, function areCommentNodePropsEqual(prev, next) {
+  if (prev.comment !== next.comment) return false;
+  if (prev.postId !== next.postId) return false;
+  if (prev.postPublicId !== next.postPublicId) return false;
+  if (prev.depth !== next.depth) return false;
+  if (prev.nowMs !== next.nowMs) return false;
+  if (prev.initialNowMs !== next.initialNowMs) return false;
+  if (prev.canReport !== next.canReport) return false;
 
-export default function PostPageShell({
-  post,
-  communities,
-  railPosts,
-  backHref,
-  renderedAt,
-  notificationUnreadCount,
-  currentUser,
+  const prevRepliesCollapsed = prev.collapsedReplies[prev.comment.id] ?? false;
+  const nextRepliesCollapsed = next.collapsedReplies[next.comment.id] ?? false;
+  if (prevRepliesCollapsed !== nextRepliesCollapsed) return false;
+
+  const prevIsReplying =
+    !prev.comment.isDeleted && prev.replyingTo === prev.comment.id;
+  const nextIsReplying =
+    !next.comment.isDeleted && next.replyingTo === next.comment.id;
+  if (prevIsReplying !== nextIsReplying) return false;
+
+  const prevIsHighlighted = prev.highlightedCommentId === prev.comment.id;
+  const nextIsHighlighted = next.highlightedCommentId === next.comment.id;
+  if (prevIsHighlighted !== nextIsHighlighted) return false;
+
+  return true;
+});
+
+const PostCommentSection = memo(function PostCommentSection({
+  postId,
+  postPublicId,
+  comments,
+  commentCount,
+  initialNowMs,
+  canReport,
+  onActionNotice,
 }: {
-  post: PostData;
-  communities: CommunityItem[];
-  railPosts: RailPost[];
-  backHref: string;
-  renderedAt: string;
-  notificationUnreadCount: number;
-  currentUser: {
-    username: string;
-    displayName: string | null;
-  } | null;
+  postId: string;
+  postPublicId: string;
+  comments: PostComment[];
+  commentCount: number;
+  initialNowMs: number;
+  canReport: boolean;
+  onActionNotice: (notice: ActionNoticeState) => void;
 }) {
-  const router = useRouter();
-  const initialNowMs = new Date(renderedAt).getTime();
-  const nowMs = initialNowMs;
-  const [copied, setCopied] = useState(false);
-  const [actionNotice, setActionNotice] = useState<ActionNoticeState | null>(
-    null
-  );
   const [commentSort, setCommentSort] = useState<CommentSort>("best");
   const [visibleCommentCount, setVisibleCommentCount] = useState(20);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -1526,30 +1540,17 @@ export default function PostPageShell({
   const [hashTargetCommentId, setHashTargetCommentId] = useState<
     string | null
   >(null);
-  const [editingPost, setEditingPost] = useState(false);
-  const [postBody, setPostBody] = useState("");
-  const [postPending, setPostPending] = useState(false);
+  const nowMs = initialNowMs;
   const sortedComments = useMemo(
-    () => sortComments(post.comments, commentSort),
-    [post.comments, commentSort]
+    () => sortComments(comments, commentSort),
+    [comments, commentSort]
   );
   const visibleComments = sortedComments.slice(0, visibleCommentCount);
   const hasMoreComments = sortedComments.length > visibleCommentCount;
-  const youtubeEmbedUrl = getYouTubeEmbedUrl(post.url);
   const { parentMap: commentParentMap, rootMap: commentRootMap } = useMemo(
-    () => buildCommentMaps(post.comments),
-    [post.comments]
+    () => buildCommentMaps(comments),
+    [comments]
   );
-
-  useEffect(() => {
-    if (!actionNotice) return;
-
-    const timeoutId = window.setTimeout(() => {
-      setActionNotice(null);
-    }, 3200);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [actionNotice]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1642,6 +1643,183 @@ export default function PostPageShell({
     return () => window.clearTimeout(timeoutId);
   }, [highlightedCommentId]);
 
+  function handleReply(commentId: string) {
+    setCollapsedReplies((current) =>
+      current[commentId]
+        ? { ...current, [commentId]: false }
+        : current
+    );
+    setReplyingTo((current) => (current === commentId ? null : commentId));
+  }
+
+  function toggleReplies(commentId: string) {
+    setCollapsedReplies((current) => ({
+      ...current,
+      [commentId]: !current[commentId],
+    }));
+  }
+
+  return (
+    <>
+      <CommentComposer postId={postId} />
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 6,
+        }}
+      >
+        <h3
+          style={{
+            fontFamily: "var(--font-fraunces), Georgia, serif",
+            fontSize: 17,
+            fontWeight: 500,
+            color: "#807c76",
+            letterSpacing: "-.01em",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {commentCount.toLocaleString()} Comments
+        </h3>
+
+        <div
+          style={{
+            flex: 1,
+            height: 1,
+            background: "linear-gradient(to right, #222, transparent)",
+          }}
+        />
+
+        <select
+          value={commentSort}
+          onChange={(e) => {
+            setCommentSort(e.target.value as CommentSort);
+            setVisibleCommentCount(20);
+          }}
+          style={{
+            background: "#181717",
+            border: "1px solid #252424",
+            borderRadius: 6,
+            color: "#6a6764",
+            fontFamily: "var(--font-outfit), sans-serif",
+            fontSize: 11.5,
+            fontWeight: 600,
+            padding: "4px 10px",
+            outline: "none",
+            cursor: "pointer",
+          }}
+        >
+          {[
+            { value: "best", label: "Best" },
+            { value: "new", label: "New" },
+            { value: "old", label: "Old" },
+          ].map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {comments.length > 0 ? (
+        <div>
+          {visibleComments.map((comment) => (
+            <div
+              key={comment.id}
+              className="cmt-wrap"
+              style={{ marginTop: 14 }}
+            >
+              <CommentNode
+                comment={comment}
+                postId={postId}
+                postPublicId={postPublicId}
+                nowMs={nowMs}
+                initialNowMs={initialNowMs}
+                replyingTo={replyingTo}
+                collapsedReplies={collapsedReplies}
+                highlightedCommentId={highlightedCommentId}
+                canReport={canReport}
+                onReply={handleReply}
+                onCancelReply={() => setReplyingTo(null)}
+                onToggleReplies={toggleReplies}
+                onActionNotice={onActionNotice}
+              />
+            </div>
+          ))}
+
+          {hasMoreComments ? (
+            <button
+              className="act"
+              type="button"
+              onClick={() =>
+                setVisibleCommentCount((count) => count + 20)
+              }
+              style={{ marginTop: 16 }}
+            >
+              Show more comments
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <div
+          style={{
+            textAlign: "center",
+            padding: "60px 24px",
+            color: "#343331",
+          }}
+        >
+          <div style={{ fontSize: 28, marginBottom: 10 }}>◎</div>
+          <p style={{ fontSize: 14 }}>No comments yet — be first.</p>
+        </div>
+      )}
+    </>
+  );
+});
+
+export default function PostPageShell({
+  post,
+  communities,
+  railPosts,
+  backHref,
+  renderedAt,
+  notificationUnreadCount,
+  currentUser,
+}: {
+  post: PostData;
+  communities: CommunityItem[];
+  railPosts: RailPost[];
+  backHref: string;
+  renderedAt: string;
+  notificationUnreadCount: number;
+  currentUser: {
+    username: string;
+    displayName: string | null;
+  } | null;
+}) {
+  const router = useRouter();
+  const initialNowMs = new Date(renderedAt).getTime();
+  const nowMs = initialNowMs;
+  const [copied, setCopied] = useState(false);
+  const [actionNotice, setActionNotice] = useState<ActionNoticeState | null>(
+    null
+  );
+  const [editingPost, setEditingPost] = useState(false);
+  const [postBody, setPostBody] = useState("");
+  const [postPending, setPostPending] = useState(false);
+  const youtubeEmbedUrl = getYouTubeEmbedUrl(post.url);
+
+  useEffect(() => {
+    if (!actionNotice) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setActionNotice(null);
+    }, 3200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [actionNotice]);
+
   async function handlePostSave() {
     if (postPending) return;
 
@@ -1723,22 +1901,6 @@ export default function PostPageShell({
     } finally {
       setPostPending(false);
     }
-  }
-
-  function handleReply(commentId: string) {
-    setCollapsedReplies((current) =>
-      current[commentId]
-        ? { ...current, [commentId]: false }
-        : current
-    );
-    setReplyingTo((current) => (current === commentId ? null : commentId));
-  }
-
-  function toggleReplies(commentId: string) {
-    setCollapsedReplies((current) => ({
-      ...current,
-      [commentId]: !current[commentId],
-    }));
   }
 
   return (
@@ -2097,119 +2259,15 @@ export default function PostPageShell({
               </div>
             </div>
 
-            <CommentComposer postId={post.id} />
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                marginBottom: 6,
-              }}
-            >
-              <h3
-                style={{
-                  fontFamily: "var(--font-fraunces), Georgia, serif",
-                  fontSize: 17,
-                  fontWeight: 500,
-                  color: "#807c76",
-                  letterSpacing: "-.01em",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {(post.commentCount ?? 0).toLocaleString()} Comments
-              </h3>
-
-              <div
-                style={{
-                  flex: 1,
-                  height: 1,
-                  background: "linear-gradient(to right, #222, transparent)",
-                }}
-              />
-
-              <select
-                value={commentSort}
-                onChange={(e) => {
-                  setCommentSort(e.target.value as CommentSort);
-                  setVisibleCommentCount(20);
-                }}
-                style={{
-                  background: "#181717",
-                  border: "1px solid #252424",
-                  borderRadius: 6,
-                  color: "#6a6764",
-                  fontFamily: "var(--font-outfit), sans-serif",
-                  fontSize: 11.5,
-                  fontWeight: 600,
-                  padding: "4px 10px",
-                  outline: "none",
-                  cursor: "pointer",
-                }}
-              >
-                {[
-                  { value: "best", label: "Best" },
-                  { value: "new", label: "New" },
-                  { value: "old", label: "Old" },
-                ].map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {post.comments.length > 0 ? (
-              <div>
-                {visibleComments.map((comment) => (
-                  <div
-                    key={comment.id}
-                    className="cmt-wrap"
-                    style={{ marginTop: 14 }}
-                  >
-                    <CommentNode
-                      comment={comment}
-                      postId={post.id}
-                      postPublicId={post.publicId}
-                      nowMs={nowMs}
-                      initialNowMs={initialNowMs}
-                      replyingTo={replyingTo}
-                      collapsedReplies={collapsedReplies}
-                      highlightedCommentId={highlightedCommentId}
-                      canReport={Boolean(currentUser)}
-                      onReply={handleReply}
-                      onCancelReply={() => setReplyingTo(null)}
-                      onToggleReplies={toggleReplies}
-                      onActionNotice={setActionNotice}
-                    />
-                  </div>
-                ))}
-
-                {hasMoreComments ? (
-                  <button
-                    className="act"
-                    type="button"
-                    onClick={() =>
-                      setVisibleCommentCount((count) => count + 20)
-                    }
-                    style={{ marginTop: 16 }}
-                  >
-                    Show more comments
-                  </button>
-                ) : null}
-              </div>
-            ) : (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "60px 24px",
-                  color: "#343331",
-                }}
-              >
-                <div style={{ fontSize: 28, marginBottom: 10 }}>◎</div>
-                <p style={{ fontSize: 14 }}>No comments yet — be first.</p>
-              </div>
-            )}
+            <PostCommentSection
+              postId={post.id}
+              postPublicId={post.publicId}
+              comments={post.comments}
+              commentCount={post.commentCount ?? 0}
+              initialNowMs={initialNowMs}
+              canReport={Boolean(currentUser)}
+              onActionNotice={setActionNotice}
+            />
           </div>
         </main>
 
