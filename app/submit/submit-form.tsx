@@ -2,7 +2,9 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import MentionAutocompleteMenu from "@/components/MentionAutocompleteMenu";
 import MentionText from "@/components/MentionText";
+import { useMentionAutocomplete } from "@/components/useMentionAutocomplete";
 import { useResolvedMentions } from "@/components/useResolvedMentions";
 
 type Community = {
@@ -68,6 +70,8 @@ export default function SubmitForm({
 }) {
   const router = useRouter();
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const isCrosspost = Boolean(crosspostSource);
 
   const [title, setTitle] = useState("");
@@ -87,6 +91,8 @@ export default function SubmitForm({
   const [previewMessage, setPreviewMessage] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [titleSelection, setTitleSelection] = useState({ start: 0, end: 0 });
+  const [bodySelection, setBodySelection] = useState({ start: 0, end: 0 });
   const [includeLinkPreviewDescription, setIncludeLinkPreviewDescription] =
     useState(false);
   const [includeLinkPreviewImage, setIncludeLinkPreviewImage] = useState(false);
@@ -97,6 +103,28 @@ export default function SubmitForm({
     unresolvedMentions,
     loading: mentionLoading,
   } = useResolvedMentions(`${title}\n${body}`);
+  const titleMentionAutocomplete = useMentionAutocomplete({
+    text: title,
+    selection: titleSelection,
+    inputRef: titleInputRef,
+    onInsert: (nextText, nextCursor) => {
+      setTitle(nextText);
+      setTitleSelection({ start: nextCursor, end: nextCursor });
+      if (previewMessage) setPreviewMessage(null);
+      if (submitError) setSubmitError(null);
+    },
+  });
+  const bodyMentionAutocomplete = useMentionAutocomplete({
+    text: body,
+    selection: bodySelection,
+    inputRef: bodyTextareaRef,
+    onInsert: (nextText, nextCursor) => {
+      setBody(nextText);
+      setBodySelection({ start: nextCursor, end: nextCursor });
+      if (previewMessage) setPreviewMessage(null);
+      if (submitError) setSubmitError(null);
+    },
+  });
 
   async function uploadImage(file: File) {
     const setupRes = await fetch("/api/upload", {
@@ -458,16 +486,45 @@ export default function SubmitForm({
           <div>
             <label style={labelStyle}>Title</label>
             <input
+              ref={titleInputRef}
               type="text"
               placeholder="Give your post a title or leave it blank for a link post"
               value={title}
               onChange={(e) => {
                 setTitle(e.target.value);
+                setTitleSelection({
+                  start: e.currentTarget.selectionStart ?? 0,
+                  end: e.currentTarget.selectionEnd ?? 0,
+                });
                 if (previewMessage) setPreviewMessage(null);
                 if (submitError) setSubmitError(null);
               }}
+              onSelect={(e) => {
+                setTitleSelection({
+                  start: e.currentTarget.selectionStart ?? 0,
+                  end: e.currentTarget.selectionEnd ?? 0,
+                });
+              }}
+              onClick={(e) => {
+                setTitleSelection({
+                  start: e.currentTarget.selectionStart ?? 0,
+                  end: e.currentTarget.selectionEnd ?? 0,
+                });
+              }}
+              onKeyDown={titleMentionAutocomplete.handleKeyDown}
+              onBlur={() => {
+                titleMentionAutocomplete.closeMenu();
+              }}
               style={inputStyle}
               maxLength={300}
+            />
+
+            <MentionAutocompleteMenu
+              loading={titleMentionAutocomplete.loading}
+              query={titleMentionAutocomplete.activeQuery}
+              suggestions={titleMentionAutocomplete.suggestions}
+              highlightedIndex={titleMentionAutocomplete.highlightedIndex}
+              onSelect={titleMentionAutocomplete.selectSuggestion}
             />
           </div>
 
@@ -706,12 +763,33 @@ export default function SubmitForm({
         <div>
           <label style={labelStyle}>Body</label>
           <textarea
+            ref={bodyTextareaRef}
             placeholder="Add optional text, context, or a rant for the ages..."
             value={body}
             onChange={(e) => {
               setBody(e.target.value);
+              setBodySelection({
+                start: e.currentTarget.selectionStart,
+                end: e.currentTarget.selectionEnd,
+              });
               if (previewMessage) setPreviewMessage(null);
               if (submitError) setSubmitError(null);
+            }}
+            onSelect={(e) => {
+              setBodySelection({
+                start: e.currentTarget.selectionStart,
+                end: e.currentTarget.selectionEnd,
+              });
+            }}
+            onClick={(e) => {
+              setBodySelection({
+                start: e.currentTarget.selectionStart,
+                end: e.currentTarget.selectionEnd,
+              });
+            }}
+            onKeyDown={bodyMentionAutocomplete.handleKeyDown}
+            onBlur={() => {
+              bodyMentionAutocomplete.closeMenu();
             }}
             rows={8}
             style={{
@@ -720,6 +798,14 @@ export default function SubmitForm({
               minHeight: 180,
               lineHeight: 1.6,
             }}
+          />
+
+          <MentionAutocompleteMenu
+            loading={bodyMentionAutocomplete.loading}
+            query={bodyMentionAutocomplete.activeQuery}
+            suggestions={bodyMentionAutocomplete.suggestions}
+            highlightedIndex={bodyMentionAutocomplete.highlightedIndex}
+            onSelect={bodyMentionAutocomplete.selectSuggestion}
           />
 
           {mentionedUsernames.length > 0 ? (

@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "../app/(main)/feed/feed.css";
 import { ActionNotice, type ActionNoticeState } from "./ActionNotice";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
+import MentionAutocompleteMenu from "./MentionAutocompleteMenu";
 import MentionText from "./MentionText";
 import ReportAction from "./ReportAction";
 import SavePostButton from "./SavePostButton";
+import { useMentionAutocomplete } from "./useMentionAutocomplete";
 import { useResolvedMentions } from "./useResolvedMentions";
 
 type CommunityItem = {
@@ -585,13 +587,25 @@ function RightRail({
 function CommentComposer({ postId }: { postId: string }) {
   const [body, setBody] = useState("");
   const [showPreview, setShowPreview] = useState(false);
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [loading, setLoading] = useState(false);
   const [submitState, setSubmitState] = useState<{
     tone: "success" | "error";
     message: string;
   } | null>(null);
   const router = useRouter();
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const { resolvedMentions } = useResolvedMentions(body);
+  const mentionAutocomplete = useMentionAutocomplete({
+    text: body,
+    selection,
+    inputRef: textareaRef,
+    onInsert: (nextText, nextCursor) => {
+      setBody(nextText);
+      setSelection({ start: nextCursor, end: nextCursor });
+      if (submitState) setSubmitState(null);
+    },
+  });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -647,10 +661,32 @@ function CommentComposer({ postId }: { postId: string }) {
 
       <form onSubmit={handleSubmit}>
         <textarea
+          ref={textareaRef}
           value={body}
           onChange={(e) => {
             setBody(e.target.value);
+            setSelection({
+              start: e.currentTarget.selectionStart,
+              end: e.currentTarget.selectionEnd,
+            });
             if (submitState) setSubmitState(null);
+          }}
+          onSelect={(e) => {
+            setSelection({
+              start: e.currentTarget.selectionStart,
+              end: e.currentTarget.selectionEnd,
+            });
+          }}
+          onClick={(e) => {
+            setSelection({
+              start: e.currentTarget.selectionStart,
+              end: e.currentTarget.selectionEnd,
+            });
+          }}
+          onKeyDown={mentionAutocomplete.handleKeyDown}
+          onBlur={(e) => {
+            mentionAutocomplete.closeMenu();
+            e.currentTarget.style.borderColor = "#252424";
           }}
           placeholder="Share your thoughts..."
           style={{
@@ -671,9 +707,14 @@ function CommentComposer({ postId }: { postId: string }) {
           onFocus={(e) => {
             e.currentTarget.style.borderColor = "rgba(255,72,38,.35)";
           }}
-          onBlur={(e) => {
-            e.currentTarget.style.borderColor = "#252424";
-          }}
+        />
+
+        <MentionAutocompleteMenu
+          loading={mentionAutocomplete.loading}
+          query={mentionAutocomplete.activeQuery}
+          suggestions={mentionAutocomplete.suggestions}
+          highlightedIndex={mentionAutocomplete.highlightedIndex}
+          onSelect={mentionAutocomplete.selectSuggestion}
         />
 
         <MentionDraftHint text={body} />
@@ -765,13 +806,25 @@ function ReplyComposer({
 }) {
   const [body, setBody] = useState("");
   const [showPreview, setShowPreview] = useState(false);
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [loading, setLoading] = useState(false);
   const [submitState, setSubmitState] = useState<{
     tone: "success" | "error";
     message: string;
   } | null>(null);
   const router = useRouter();
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const { resolvedMentions } = useResolvedMentions(body);
+  const mentionAutocomplete = useMentionAutocomplete({
+    text: body,
+    selection,
+    inputRef: textareaRef,
+    onInsert: (nextText, nextCursor) => {
+      setBody(nextText);
+      setSelection({ start: nextCursor, end: nextCursor });
+      if (submitState) setSubmitState(null);
+    },
+  });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -827,10 +880,32 @@ function ReplyComposer({
       </p>
 
       <textarea
+        ref={textareaRef}
         value={body}
         onChange={(e) => {
           setBody(e.target.value);
+          setSelection({
+            start: e.currentTarget.selectionStart,
+            end: e.currentTarget.selectionEnd,
+          });
           if (submitState) setSubmitState(null);
+        }}
+        onSelect={(e) => {
+          setSelection({
+            start: e.currentTarget.selectionStart,
+            end: e.currentTarget.selectionEnd,
+          });
+        }}
+        onClick={(e) => {
+          setSelection({
+            start: e.currentTarget.selectionStart,
+            end: e.currentTarget.selectionEnd,
+          });
+        }}
+        onKeyDown={mentionAutocomplete.handleKeyDown}
+        onBlur={(e) => {
+          mentionAutocomplete.closeMenu();
+          e.currentTarget.style.borderColor = "#252424";
         }}
         placeholder="Write a reply..."
         style={{
@@ -851,9 +926,14 @@ function ReplyComposer({
         onFocus={(e) => {
           e.currentTarget.style.borderColor = "rgba(255,72,38,.35)";
         }}
-        onBlur={(e) => {
-          e.currentTarget.style.borderColor = "#252424";
-        }}
+      />
+
+      <MentionAutocompleteMenu
+        loading={mentionAutocomplete.loading}
+        query={mentionAutocomplete.activeQuery}
+        suggestions={mentionAutocomplete.suggestions}
+        highlightedIndex={mentionAutocomplete.highlightedIndex}
+        onSelect={mentionAutocomplete.selectSuggestion}
       />
 
       <MentionDraftHint text={body} compact />
