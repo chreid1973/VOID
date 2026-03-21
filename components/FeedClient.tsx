@@ -458,10 +458,6 @@ function RightRail({
   trendingPosts: FeedRailPost[];
   communities: FeedCommunity[];
 }) {
-  const totalMembers = communities.reduce((sum, c) => sum + c.memberCount, 0);
-  const totalPosts = communities.reduce((sum, c) => sum + c.postCount, 0);
-  const totalComments = posts.reduce((sum, p) => sum + (p.comments ?? 0), 0);
-
   return (
     <aside className="feed-right">
       <div className="card" style={{ padding: "16px 18px", marginBottom: 14 }}>
@@ -549,58 +545,6 @@ function RightRail({
               </div>
             </div>
           </Link>
-        ))}
-      </div>
-
-      <div className="card" style={{ padding: "16px 18px" }}>
-        <h3
-          style={{
-            fontFamily: "var(--font-fraunces), Georgia, serif",
-            fontSize: 13.5,
-            fontWeight: 600,
-            color: "#807c76",
-            marginBottom: 10,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-          }}
-        >
-          <span
-            style={{
-              width: 18,
-              height: 18,
-              borderRadius: 5,
-              background: "linear-gradient(135deg, #ff4826, #ff8040)",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 10,
-            }}
-          >
-            ◈
-          </span>
-          SocialVOID · Stats
-        </h3>
-
-        {[
-          { k: "Total Members", v: totalMembers.toLocaleString() },
-          { k: "Communities", v: communities.length.toLocaleString() },
-          { k: "Total Posts", v: totalPosts.toLocaleString() },
-          { k: "Comments On Page", v: totalComments.toLocaleString() },
-        ].map((s, i) => (
-          <div
-            key={s.k}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "7px 0",
-              borderTop: i === 0 ? "none" : "1px solid #181818",
-            }}
-          >
-            <span style={{ fontSize: 11.5, color: "#484644" }}>{s.k}</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#706d69" }}>{s.v}</span>
-          </div>
         ))}
       </div>
     </aside>

@@ -9,6 +9,7 @@ import { resolveStoredImageUrl } from "../../../r2";
 import { loadTrendingRailPosts } from "../../../lib/trendingRail";
 
 const PAGE_SIZE = 20;
+const RANKING_CANDIDATE_LIMIT = 250;
 
 type FeedScope = "home" | "following" | "popular" | "all";
 
@@ -217,132 +218,163 @@ export default async function FeedPage({
         } satisfies Prisma.PostWhereInput)
       : undefined;
 
-  const rankingNowMs = Date.now();
-  const rankedPostsRaw = await prisma.post.findMany({
-    where,
-    select: {
-      id: true,
-      score: true,
-      createdAt: true,
-    },
-  });
-
-  const rankedPostIds = rankedPostsRaw.map((post) => post.id);
-  const [topLevelCommentCounts, replyCounts] =
-    rankedPostIds.length > 0
-      ? await Promise.all([
-          prisma.comment.groupBy({
-            by: ["postId"],
-            where: {
-              postId: {
-                in: rankedPostIds,
-              },
-              isDeleted: false,
-              isHidden: false,
-              parentId: null,
-            },
-            _count: {
-              _all: true,
-            },
-          }),
-          prisma.comment.groupBy({
-            by: ["postId"],
-            where: {
-              postId: {
-                in: rankedPostIds,
-              },
-              isDeleted: false,
-              isHidden: false,
-              parentId: {
-                not: null,
-              },
-            },
-            _count: {
-              _all: true,
-            },
-          }),
-        ])
-      : [[], []];
-
-  const topLevelCommentCountMap = new Map(
-    topLevelCommentCounts.map((entry) => [entry.postId, entry._count._all])
-  );
-  const replyCountMap = new Map(
-    replyCounts.map((entry) => [entry.postId, entry._count._all])
-  );
-  const rankedPosts = rankedPostsRaw.map((post) => ({
-    id: post.id,
-    score: post.score,
-    commentCount: topLevelCommentCountMap.get(post.id) ?? 0,
-    replyCount: replyCountMap.get(post.id) ?? 0,
-    createdAt: post.createdAt,
-  }));
-
-  rankedPosts.sort((a, b) => compareRankedPosts(a, b, initialSort, rankingNowMs));
-
   const pageOffset = (currentPage - 1) * PAGE_SIZE;
-  const visiblePostIds = rankedPosts
-    .slice(pageOffset, pageOffset + PAGE_SIZE)
-    .map((post) => post.id);
-  const hasNextPage = rankedPosts.length > pageOffset + PAGE_SIZE;
   const hasPreviousPage = currentPage > 1;
-  const visiblePostsRaw =
-    visiblePostIds.length > 0
-      ? await prisma.post.findMany({
-          where: {
-            id: {
-              in: visiblePostIds,
-            },
+  const postInclude = {
+    author: {
+      select: {
+        username: true,
+        displayName: true,
+      },
+    },
+    community: {
+      select: {
+        id: true,
+        name: true,
+        displayName: true,
+        icon: true,
+        color: true,
+      },
+    },
+    crosspostOf: {
+      select: {
+        id: true,
+        publicId: true,
+        author: {
+          select: {
+            username: true,
+            displayName: true,
           },
-          include: {
-            author: {
-              select: {
-                username: true,
-                displayName: true,
-              },
-            },
-            community: {
-              select: {
-                id: true,
-                name: true,
-                displayName: true,
-                icon: true,
-                color: true,
-              },
-            },
-            crosspostOf: {
-              select: {
-                id: true,
-                publicId: true,
-                author: {
-                  select: {
-                    username: true,
-                    displayName: true,
-                  },
-                },
-                community: {
-                  select: {
-                    name: true,
-                    displayName: true,
-                    color: true,
-                    icon: true,
-                  },
-                },
-              },
-            },
+        },
+        community: {
+          select: {
+            name: true,
+            displayName: true,
+            color: true,
+            icon: true,
           },
-        })
-      : [];
-  const visiblePostMap = new Map(
-    visiblePostsRaw.map((post) => [post.id, post])
-  );
-  const visiblePosts = visiblePostIds
-    .map((postId) => visiblePostMap.get(postId))
-    .filter(
-      (
-        post
-      ): post is (typeof visiblePostsRaw)[number] => Boolean(post)
+        },
+      },
+    },
+  } satisfies Prisma.PostInclude;
+
+  let visiblePosts: Array<
+    Prisma.PostGetPayload<{
+      include: typeof postInclude;
+    }>
+  > = [];
+  let hasNextPage = false;
+
+  if (initialSort === "new" || initialSort === "top") {
+    const orderedPosts = await prisma.post.findMany({
+      where,
+      orderBy:
+        initialSort === "new"
+          ? [{ createdAt: "desc" }, { score: "desc" }]
+          : [{ score: "desc" }, { createdAt: "desc" }],
+      skip: pageOffset,
+      take: PAGE_SIZE + 1,
+      include: postInclude,
+    });
+
+    hasNextPage = orderedPosts.length > PAGE_SIZE;
+    visiblePosts = orderedPosts.slice(0, PAGE_SIZE);
+  } else {
+    const rankingNowMs = Date.now();
+    const rankedPostsRaw = await prisma.post.findMany({
+      where,
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: RANKING_CANDIDATE_LIMIT,
+      select: {
+        id: true,
+        score: true,
+        createdAt: true,
+      },
+    });
+
+    const rankedPostIds = rankedPostsRaw.map((post) => post.id);
+    const [topLevelCommentCounts, replyCounts] =
+      rankedPostIds.length > 0
+        ? await Promise.all([
+            prisma.comment.groupBy({
+              by: ["postId"],
+              where: {
+                postId: {
+                  in: rankedPostIds,
+                },
+                isDeleted: false,
+                isHidden: false,
+                parentId: null,
+              },
+              _count: {
+                _all: true,
+              },
+            }),
+            prisma.comment.groupBy({
+              by: ["postId"],
+              where: {
+                postId: {
+                  in: rankedPostIds,
+                },
+                isDeleted: false,
+                isHidden: false,
+                parentId: {
+                  not: null,
+                },
+              },
+              _count: {
+                _all: true,
+              },
+            }),
+          ])
+        : [[], []];
+
+    const topLevelCommentCountMap = new Map(
+      topLevelCommentCounts.map((entry) => [entry.postId, entry._count._all])
     );
+    const replyCountMap = new Map(
+      replyCounts.map((entry) => [entry.postId, entry._count._all])
+    );
+    const rankedPosts = rankedPostsRaw.map((post) => ({
+      id: post.id,
+      score: post.score,
+      commentCount: topLevelCommentCountMap.get(post.id) ?? 0,
+      replyCount: replyCountMap.get(post.id) ?? 0,
+      createdAt: post.createdAt,
+    }));
+
+    rankedPosts.sort((a, b) => compareRankedPosts(a, b, initialSort, rankingNowMs));
+
+    const visiblePostIds = rankedPosts
+      .slice(pageOffset, pageOffset + PAGE_SIZE)
+      .map((post) => post.id);
+    hasNextPage = rankedPosts.length > pageOffset + PAGE_SIZE;
+
+    const visiblePostsRaw =
+      visiblePostIds.length > 0
+        ? await prisma.post.findMany({
+            where: {
+              id: {
+                in: visiblePostIds,
+              },
+            },
+            include: postInclude,
+          })
+        : [];
+    const visiblePostMap = new Map(
+      visiblePostsRaw.map((post) => [post.id, post])
+    );
+
+    visiblePosts = visiblePostIds
+      .map((postId) => visiblePostMap.get(postId))
+      .filter(
+        (
+          post
+        ): post is (typeof visiblePostsRaw)[number] => Boolean(post)
+      );
+  }
 
   const [postVotes, savedPosts] =
     user && visiblePosts.length > 0
