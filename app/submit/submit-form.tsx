@@ -93,6 +93,7 @@ export default function SubmitForm({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [titleSelection, setTitleSelection] = useState({ start: 0, end: 0 });
+  const [bodyActiveMentionQuery, setBodyActiveMentionQuery] = useState("");
   const [includeLinkPreviewDescription, setIncludeLinkPreviewDescription] =
     useState(false);
   const [includeLinkPreviewImage, setIncludeLinkPreviewImage] = useState(false);
@@ -117,6 +118,11 @@ export default function SubmitForm({
       if (submitError) setSubmitError(null);
     },
   });
+  const filteredUnresolvedMentions = bodyActiveMentionQuery
+    ? unresolvedMentions.filter(
+        (username) => username !== bodyActiveMentionQuery.toLowerCase()
+      )
+    : unresolvedMentions;
 
   async function uploadImage(file: File) {
     const setupRes = await fetch("/api/upload", {
@@ -763,6 +769,7 @@ export default function SubmitForm({
             value={bodyHtml}
             disabled={loading}
             placeholder="Add optional context, formatting, or a rant for the ages..."
+            onActiveMentionQueryChange={setBodyActiveMentionQuery}
             onChange={({ html, text }) => {
               setBodyHtml(html);
               setBody(text);
@@ -809,8 +816,8 @@ export default function SubmitForm({
                             .map((username) => `@${username}`)
                             .join(", ")}`
                         : null,
-                      unresolvedMentions.length > 0
-                        ? `No user found for ${unresolvedMentions
+                      filteredUnresolvedMentions.length > 0
+                        ? `No user found for ${filteredUnresolvedMentions
                             .map((username) => `@${username}`)
                             .join(", ")}`
                         : null,
