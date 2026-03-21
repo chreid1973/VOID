@@ -379,6 +379,7 @@ export default function SubmitForm({
         <label style={labelStyle}>Community</label>
         <select
           value={communityId}
+          disabled={loading}
           onChange={(e) => {
             setCommunityId(e.target.value);
             if (submitError) setSubmitError(null);
@@ -483,15 +484,16 @@ export default function SubmitForm({
         </div>
       ) : (
         <>
-          <div>
-            <label style={labelStyle}>Title</label>
-            <input
-              ref={titleInputRef}
-              type="text"
-              placeholder="Give your post a title or leave it blank for a link post"
-              value={title}
-              onChange={(e) => {
-                setTitle(e.target.value);
+        <div>
+          <label style={labelStyle}>Title</label>
+          <input
+            ref={titleInputRef}
+            type="text"
+            placeholder="Give your post a title or leave it blank for a link post"
+            value={title}
+            disabled={loading}
+            onChange={(e) => {
+              setTitle(e.target.value);
                 setTitleSelection({
                   start: e.currentTarget.selectionStart ?? 0,
                   end: e.currentTarget.selectionEnd ?? 0,
@@ -515,7 +517,7 @@ export default function SubmitForm({
               onBlur={() => {
                 titleMentionAutocomplete.closeMenu();
               }}
-              style={inputStyle}
+              style={{ ...inputStyle, opacity: loading ? 0.7 : 1 }}
               maxLength={300}
             />
 
@@ -534,6 +536,7 @@ export default function SubmitForm({
               type="url"
               placeholder="https://example.com/article"
               value={url}
+              disabled={loading}
               onChange={(e) => {
                 setUrl(e.target.value);
                 setLinkPreview(null);
@@ -549,7 +552,7 @@ export default function SubmitForm({
                   void fetchLinkPreview(url);
                 }
               }}
-              style={inputStyle}
+              style={{ ...inputStyle, opacity: loading ? 0.7 : 1 }}
             />
 
             <p
@@ -766,6 +769,7 @@ export default function SubmitForm({
             ref={bodyTextareaRef}
             placeholder="Add optional text, context, or a rant for the ages..."
             value={body}
+            disabled={loading}
             onChange={(e) => {
               setBody(e.target.value);
               setBodySelection({
@@ -797,6 +801,7 @@ export default function SubmitForm({
               resize: "vertical",
               minHeight: 180,
               lineHeight: 1.6,
+              opacity: loading ? 0.7 : 1,
             }}
           />
 
@@ -905,8 +910,9 @@ export default function SubmitForm({
             ref={imageInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
+            disabled={loading}
             onChange={handleImageChange}
-            style={inputStyle}
+            style={{ ...inputStyle, opacity: loading ? 0.7 : 1 }}
           />
 
           <div
@@ -981,9 +987,15 @@ export default function SubmitForm({
             lineHeight: 1.5,
           }}
         >
-          {isCrosspost
-            ? "Crossposts create a new discussion thread while linking back to the original post."
-            : "Posts publish immediately to the selected community."}
+          {loading
+            ? isCrosspost
+              ? "Creating your crosspost..."
+              : imageFile
+                ? "Uploading image and publishing post..."
+                : "Publishing post..."
+            : isCrosspost
+              ? "Crossposts create a new discussion thread while linking back to the original post."
+              : "Posts publish immediately to the selected community."}
         </p>
 
         <button

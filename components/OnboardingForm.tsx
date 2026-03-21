@@ -109,6 +109,7 @@ export default function OnboardingForm({
           <input
             type="text"
             value={username}
+            disabled={pending}
             onChange={(e) => {
               setUsername(e.target.value);
               if (notice) setNotice(null);
@@ -128,6 +129,7 @@ export default function OnboardingForm({
               fontFamily: "var(--font-outfit), sans-serif",
               fontSize: 14,
               outline: "none",
+              opacity: pending ? 0.7 : 1,
             }}
           />
           <p
@@ -159,6 +161,7 @@ export default function OnboardingForm({
           <input
             type="text"
             value={displayName}
+            disabled={pending}
             onChange={(e) => {
               setDisplayName(e.target.value);
               if (notice) setNotice(null);
@@ -175,6 +178,7 @@ export default function OnboardingForm({
               fontFamily: "var(--font-outfit), sans-serif",
               fontSize: 14,
               outline: "none",
+              opacity: pending ? 0.7 : 1,
             }}
           />
         </div>
@@ -195,7 +199,9 @@ export default function OnboardingForm({
               lineHeight: 1.5,
             }}
           >
-            Usernames use lowercase letters, numbers, and underscores only. Reserved names like admin, void, moderator, and support are unavailable.
+            {pending
+              ? "Setting up your account..."
+              : "Usernames use lowercase letters, numbers, and underscores only. Reserved names like admin, void, moderator, and support are unavailable."}
           </p>
 
           <button
@@ -217,7 +223,7 @@ export default function OnboardingForm({
               minWidth: 170,
             }}
           >
-            {pending ? "Saving..." : "Enter Void"}
+            {pending ? "Setting up account..." : "Enter Void"}
           </button>
         </div>
       </form>
