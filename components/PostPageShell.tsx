@@ -1990,19 +1990,31 @@ export default function PostPageShell({
                         marginBottom: 22,
                       }}
                     >
-                      <img
-                        src={post.imageUrl}
-                        alt={post.title}
+                      <div
                         style={{
-                          width: "100%",
                           maxHeight: 640,
-                          objectFit: "cover",
-                          display: "block",
                           borderRadius: 16,
                           border: "1px solid #1f1f1f",
                           background: "#111010",
+                          display: "flex",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          overflow: "hidden",
                         }}
-                      />
+                      >
+                        <img
+                          src={post.imageUrl}
+                          alt={post.title}
+                          style={{
+                            display: "block",
+                            maxWidth: "100%",
+                            maxHeight: 640,
+                            width: "auto",
+                            height: "auto",
+                            objectFit: "contain",
+                          }}
+                        />
+                      </div>
                     </a>
                   ) : null}
                 </>
