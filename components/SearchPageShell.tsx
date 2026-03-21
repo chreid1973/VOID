@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
 import type { SearchResults } from "../lib/search-types";
 
@@ -111,7 +110,6 @@ export default function SearchPageShell({
   notificationUnreadCount,
   currentUser,
 }: SearchPageShellProps) {
-  const [q, setQ] = useState(initialQuery);
   const hasResults =
     results.users.length > 0 ||
     results.communities.length > 0 ||
@@ -119,17 +117,11 @@ export default function SearchPageShell({
   const currentSearchHref = initialQuery
     ? `/search?q=${encodeURIComponent(initialQuery)}`
     : "/search";
-
-  useEffect(() => {
-    setQ(initialQuery);
-  }, [initialQuery]);
-
   return (
     <div className="feed-shell">
       <FeedTopBar
         mode="search"
-        q={q}
-        onQueryChange={setQ}
+        searchInitialValue={initialQuery}
         currentUser={currentUser}
         notificationUnreadCount={notificationUnreadCount}
       />

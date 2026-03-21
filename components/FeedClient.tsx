@@ -659,7 +659,6 @@ export default function FeedClient({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [q, setQ] = useState("");
   const [actionNotice, setActionNotice] = useState<ActionNoticeState | null>(
     null
   );
@@ -756,9 +755,7 @@ export default function FeedClient({
 
       <FeedTopBar
         mode="feed"
-        q={q}
         sort={initialSort}
-        onQueryChange={setQ}
         onSortChange={handleSortChange}
         onHomeClick={() => handleSelect(null)}
         currentUser={currentUser}

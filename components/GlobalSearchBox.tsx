@@ -1,12 +1,11 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { SearchSuggestionResponse } from "../lib/search-types";
 
 type GlobalSearchBoxProps = {
-  value: string;
-  onChange: (value: string) => void;
+  initialValue?: string;
   placeholder?: string;
 };
 
@@ -131,8 +130,7 @@ function SuggestionSection({
 }
 
 export default function GlobalSearchBox({
-  value,
-  onChange,
+  initialValue = "",
   placeholder = "Search posts, communities, users…",
 }: GlobalSearchBoxProps) {
   const router = useRouter();
@@ -140,13 +138,15 @@ export default function GlobalSearchBox({
   const searchParams = useSearchParams();
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const [inputValue, setInputValue] = useState(initialValue);
   const [suggestions, setSuggestions] =
     useState<SearchSuggestionResponse>(EMPTY_SUGGESTIONS);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [highlightedKey, setHighlightedKey] = useState<string | null>(null);
 
-  const trimmedQuery = value.trim();
+  const trimmedQuery = inputValue.trim();
+  const deferredQuery = useDeferredValue(trimmedQuery);
   const currentHref = useMemo(() => {
     const currentQuery = searchParams.toString();
     return currentQuery ? `${pathname}?${currentQuery}` : pathname;
@@ -199,6 +199,10 @@ export default function GlobalSearchBox({
   }, [currentHref, suggestions.communities, suggestions.posts, suggestions.users]);
 
   useEffect(() => {
+    setInputValue(initialValue);
+  }, [initialValue]);
+
+  useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
       if (
         wrapperRef.current &&
@@ -219,7 +223,7 @@ export default function GlobalSearchBox({
   }, []);
 
   useEffect(() => {
-    if (trimmedQuery.length < 2) {
+    if (deferredQuery.length < 2) {
       abortRef.current?.abort();
       setSuggestions(EMPTY_SUGGESTIONS);
       setIsLoading(false);
@@ -237,7 +241,7 @@ export default function GlobalSearchBox({
 
       try {
         const response = await fetch(
-          `/api/search/suggest?query=${encodeURIComponent(trimmedQuery)}`,
+          `/api/search/suggest?query=${encodeURIComponent(deferredQuery)}`,
           {
             signal: controller.signal,
           }
@@ -265,7 +269,7 @@ export default function GlobalSearchBox({
     }, 160);
 
     return () => window.clearTimeout(timeoutId);
-  }, [trimmedQuery]);
+  }, [deferredQuery]);
 
   useEffect(() => {
     if (flatSuggestions.length === 0) {
@@ -358,8 +362,8 @@ export default function GlobalSearchBox({
         className="si"
         type="text"
         placeholder={placeholder}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
+        value={inputValue}
+        onChange={(event) => setInputValue(event.target.value)}
         onFocus={() => {
           if (trimmedQuery.length >= 2) {
             setIsOpen(true);

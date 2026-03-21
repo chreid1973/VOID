@@ -1509,7 +1509,7 @@ export default function PostPageShell({
 }) {
   const router = useRouter();
   const initialNowMs = new Date(renderedAt).getTime();
-  const [nowMs, setNowMs] = useState(initialNowMs);
+  const nowMs = initialNowMs;
   const [copied, setCopied] = useState(false);
   const [actionNotice, setActionNotice] = useState<ActionNoticeState | null>(
     null
@@ -1529,7 +1529,6 @@ export default function PostPageShell({
   const [editingPost, setEditingPost] = useState(false);
   const [postBody, setPostBody] = useState("");
   const [postPending, setPostPending] = useState(false);
-  const [q, setQ] = useState("");
   const sortedComments = useMemo(
     () => sortComments(post.comments, commentSort),
     [post.comments, commentSort]
@@ -1541,16 +1540,6 @@ export default function PostPageShell({
     () => buildCommentMaps(post.comments),
     [post.comments]
   );
-
-  useEffect(() => {
-    setNowMs(Date.now());
-
-    const intervalId = window.setInterval(() => {
-      setNowMs(Date.now());
-    }, 30_000);
-
-    return () => window.clearInterval(intervalId);
-  }, []);
 
   useEffect(() => {
     if (!actionNotice) return;
@@ -1758,8 +1747,6 @@ export default function PostPageShell({
 
       <FeedTopBar
         mode="post"
-        q={q}
-        onQueryChange={setQ}
         currentUser={currentUser}
         notificationUnreadCount={notificationUnreadCount}
       />

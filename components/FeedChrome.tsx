@@ -32,8 +32,6 @@ type TopBarCurrentUser = {
 type FeedTopBarProps =
   | {
       mode: "feed";
-      q: string;
-      onQueryChange: (value: string) => void;
       sort: FeedSort;
       onSortChange: (sort: FeedSort) => void;
       onHomeClick: () => void;
@@ -42,15 +40,12 @@ type FeedTopBarProps =
     }
   | {
       mode: "post";
-      q: string;
-      onQueryChange: (value: string) => void;
       currentUser: TopBarCurrentUser | null;
       notificationUnreadCount: number;
     }
   | {
       mode: "search";
-      q: string;
-      onQueryChange: (value: string) => void;
+      searchInitialValue: string;
       currentUser: TopBarCurrentUser | null;
       notificationUnreadCount: number;
     };
@@ -218,8 +213,7 @@ export function FeedTopBar(props: FeedTopBarProps) {
         </span>
 
         <GlobalSearchBox
-          value={props.q}
-          onChange={props.onQueryChange}
+          initialValue={props.mode === "search" ? props.searchInitialValue : ""}
         />
       </div>
 
