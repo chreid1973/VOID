@@ -1,5 +1,6 @@
 const FETCH_TIMEOUT_MS = 4_000;
 const MAX_HTML_BYTES = 128 * 1024;
+import { getYouTubeThumbnailUrl, getYouTubeVideoId } from "./youtube";
 
 type LinkMetadata = {
   url: string;
@@ -151,6 +152,48 @@ async function readHtmlSnippet(res: Response) {
   }
 }
 
+async function fetchYouTubeMetadata(urlString: string) {
+  const videoId = getYouTubeVideoId(urlString);
+  if (!videoId) return null;
+
+  const fallbackImageUrl = getYouTubeThumbnailUrl(urlString);
+
+  try {
+    const oEmbedUrl = new URL("https://www.youtube.com/oembed");
+    oEmbedUrl.searchParams.set("url", urlString);
+    oEmbedUrl.searchParams.set("format", "json");
+
+    const res = await fetch(oEmbedUrl.toString(), {
+      headers: {
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+
+    if (!res.ok) {
+      return {
+        title: null,
+        imageUrl: fallbackImageUrl,
+      };
+    }
+
+    const data = (await res.json()) as {
+      title?: string;
+      thumbnail_url?: string;
+    };
+
+    return {
+      title: cleanText(data.title, 300),
+      imageUrl: data.thumbnail_url ?? fallbackImageUrl,
+    };
+  } catch {
+    return {
+      title: null,
+      imageUrl: fallbackImageUrl,
+    };
+  }
+}
+
 export function normalizeExternalUrl(input: string) {
   const value = input.trim();
 
@@ -189,6 +232,7 @@ export function getLinkFallbackTitle(urlString: string) {
 
 export async function fetchLinkMetadata(urlString: string): Promise<LinkMetadata> {
   const normalizedUrl = normalizeExternalUrl(urlString);
+  const youtubeMetadata = await fetchYouTubeMetadata(normalizedUrl);
 
   try {
     const res = await fetch(normalizedUrl, {
@@ -207,9 +251,9 @@ export async function fetchLinkMetadata(urlString: string): Promise<LinkMetadata
     if (!res.ok || !contentType.includes("text/html")) {
       return {
         url: finalUrl,
-        title: null,
+        title: youtubeMetadata?.title ?? null,
         description: null,
-        imageUrl: null,
+        imageUrl: youtubeMetadata?.imageUrl ?? null,
       };
     }
 
@@ -220,7 +264,8 @@ export async function fetchLinkMetadata(urlString: string): Promise<LinkMetadata
       title: cleanText(
         extractMetaContent(html, "og:title") ??
           extractMetaContent(html, "twitter:title") ??
-          extractTitle(html),
+          extractTitle(html) ??
+          youtubeMetadata?.title,
         300
       ),
       description: cleanText(
@@ -231,16 +276,17 @@ export async function fetchLinkMetadata(urlString: string): Promise<LinkMetadata
       ),
       imageUrl: resolveExternalAssetUrl(
         extractMetaContent(html, "og:image") ??
-          extractMetaContent(html, "twitter:image"),
+          extractMetaContent(html, "twitter:image") ??
+          youtubeMetadata?.imageUrl,
         finalUrl
       ),
     };
   } catch {
     return {
       url: normalizedUrl,
-      title: null,
+      title: youtubeMetadata?.title ?? null,
       description: null,
-      imageUrl: null,
+      imageUrl: youtubeMetadata?.imageUrl ?? null,
     };
   }
 }

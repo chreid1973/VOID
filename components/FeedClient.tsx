@@ -9,6 +9,7 @@ import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
 import MentionText from "./MentionText";
 import ReportAction from "./ReportAction";
 import SavePostButton from "./SavePostButton";
+import { getYouTubeThumbnailUrl } from "../lib/youtube";
 
 type FeedPost = {
   id: string;
@@ -252,6 +253,7 @@ function PostCard({
   onActionNotice: (notice: ActionNoticeState) => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const previewImageUrl = p.imageUrl || getYouTubeThumbnailUrl(p.url);
 
   return (
     <div
@@ -350,14 +352,14 @@ function PostCard({
                   fontSize: 12,
                   lineHeight: 1.5,
                   color: "#7a726a",
-                  marginBottom: p.body || p.imageUrl ? 10 : 12,
+                  marginBottom: p.body || previewImageUrl ? 10 : 12,
                 }}
               >
                 ↗ {linkHost(p.url)}
               </p>
             ) : null}
 
-            {p.body || p.imageUrl ? (
+            {p.body || previewImageUrl ? (
               <div
                 style={{
                   display: "grid",
@@ -381,9 +383,9 @@ function PostCard({
                     </p>
                 ) : null}
 
-                {p.imageUrl ? (
+                {previewImageUrl ? (
                   <a
-                    href={p.imageUrl}
+                    href={previewImageUrl}
                     target="_blank"
                     rel="noreferrer"
                     style={{
@@ -392,7 +394,7 @@ function PostCard({
                     onClick={(e) => e.stopPropagation()}
                   >
                     <img
-                      src={p.imageUrl}
+                      src={previewImageUrl}
                       alt={p.title}
                       loading="lazy"
                       style={{
