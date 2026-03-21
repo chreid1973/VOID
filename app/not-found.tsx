@@ -227,19 +227,19 @@ export default function NotFound() {
                     gap: 16,
                   }}
                 >
-                  <div
-                    style={{
-                      fontSize: 64,
-                      lineHeight: 1,
-                      fontWeight: 800,
-                      letterSpacing: "-.06em",
-                      color: "#ff8d5d",
-                      textShadow:
-                        "0 0 20px rgba(255,72,38,.4), 0 0 40px rgba(255,72,38,.18)",
-                    }}
-                  >
-                    404
-                  </div>
+                  // <div
+                  //  style={{
+                  //    fontSize: 64,
+                  //    lineHeight: 1,
+                  //    fontWeight: 800,
+                  //    letterSpacing: "-.06em",
+                  //    color: "#ff8d5d",
+                  //    textShadow:
+                  //      "0 0 20px rgba(255,72,38,.4), 0 0 40px rgba(255,72,38,.18)",
+                    //}}
+                  //>
+                    
+                  //</div>
 
                   <div
                     style={{
