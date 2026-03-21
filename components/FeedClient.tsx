@@ -69,7 +69,6 @@ type FeedClientProps = {
   initialSelectedCommunity: string | null;
   initialScope: FeedScope;
   initialSort: FeedSort;
-  initialQuery: string;
   currentPage: number;
   hasNextPage: boolean;
   hasPreviousPage: boolean;
@@ -648,7 +647,6 @@ export default function FeedClient({
   initialSelectedCommunity,
   initialScope,
   initialSort,
-  initialQuery,
   currentPage,
   hasNextPage,
   hasPreviousPage,
@@ -661,7 +659,7 @@ export default function FeedClient({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [q, setQ] = useState(initialQuery);
+  const [q, setQ] = useState("");
   const [actionNotice, setActionNotice] = useState<ActionNoticeState | null>(
     null
   );
@@ -687,10 +685,6 @@ export default function FeedClient({
     `/p/${publicId}?from=${encodeURIComponent(currentFeedHref)}`;
 
   useEffect(() => {
-    setQ(initialQuery);
-  }, [initialQuery]);
-
-  useEffect(() => {
     if (!actionNotice) return;
 
     const timeoutId = window.setTimeout(() => {
@@ -699,30 +693,6 @@ export default function FeedClient({
 
     return () => window.clearTimeout(timeoutId);
   }, [actionNotice]);
-
-  useEffect(() => {
-    const handle = window.setTimeout(() => {
-      const normalizedQuery = q.trim();
-      const currentQuery = initialQuery.trim();
-
-      if (normalizedQuery === currentQuery) return;
-
-      const params = new URLSearchParams(searchParams.toString());
-
-      if (normalizedQuery) {
-        params.set("q", normalizedQuery);
-      } else {
-        params.delete("q");
-      }
-
-      params.delete("page");
-
-      const nextUrl = params.toString() ? `${pathname}?${params}` : pathname;
-      router.replace(nextUrl, { scroll: false });
-    }, 250);
-
-    return () => window.clearTimeout(handle);
-  }, [initialQuery, pathname, q, router, searchParams]);
 
   function updateFeedParams(
     updates: Record<string, string | null | undefined>,

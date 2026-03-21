@@ -71,7 +71,6 @@ export default async function FeedPage({
     scope?: string | string[];
     sort?: string | string[];
     page?: string | string[];
-    q?: string | string[];
   };
 }) {
   const [{ userId }, user] = await Promise.all([auth(), getCurrentUser()]);
@@ -84,7 +83,6 @@ export default async function FeedPage({
   const initialScope = parseScope(firstParam(searchParams?.scope));
   const initialSort = parseSort(firstParam(searchParams?.sort));
   const currentPage = parsePage(firstParam(searchParams?.page));
-  const initialQuery = firstParam(searchParams?.q)?.trim() || "";
 
   const [memberships, follows, communities, trendingRailPosts, unreadNotificationCount] = await Promise.all([
     user
@@ -168,55 +166,6 @@ export default async function FeedPage({
   } else if (initialScope === "popular") {
     whereClauses.push({
       OR: [{ score: { gt: 0 } }, { commentCount: { gt: 0 } }],
-    });
-  }
-
-  if (initialQuery) {
-    whereClauses.push({
-      OR: [
-        {
-          title: {
-            contains: initialQuery,
-            mode: "insensitive",
-          },
-        },
-        {
-          body: {
-            contains: initialQuery,
-            mode: "insensitive",
-          },
-        },
-        {
-          url: {
-            contains: initialQuery,
-            mode: "insensitive",
-          },
-        },
-        {
-          author: {
-            username: {
-              contains: initialQuery,
-              mode: "insensitive",
-            },
-          },
-        },
-        {
-          author: {
-            displayName: {
-              contains: initialQuery,
-              mode: "insensitive",
-            },
-          },
-        },
-        {
-          community: {
-            displayName: {
-              contains: initialQuery,
-              mode: "insensitive",
-            },
-          },
-        },
-      ],
     });
   }
 
@@ -479,7 +428,6 @@ export default async function FeedPage({
       initialSelectedCommunity={initialSelectedCommunity}
       initialScope={initialScope}
       initialSort={initialSort}
-      initialQuery={initialQuery}
       currentPage={currentPage}
       hasNextPage={hasNextPage}
       hasPreviousPage={hasPreviousPage}

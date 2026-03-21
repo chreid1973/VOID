@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import GlobalSearchBox from "./GlobalSearchBox";
 
 type CommunityNavItem = {
   id: string;
@@ -32,8 +33,8 @@ type FeedTopBarProps =
   | {
       mode: "feed";
       q: string;
-      sort: FeedSort;
       onQueryChange: (value: string) => void;
+      sort: FeedSort;
       onSortChange: (sort: FeedSort) => void;
       onHomeClick: () => void;
       currentUser: TopBarCurrentUser | null;
@@ -41,6 +42,15 @@ type FeedTopBarProps =
     }
   | {
       mode: "post";
+      q: string;
+      onQueryChange: (value: string) => void;
+      currentUser: TopBarCurrentUser | null;
+      notificationUnreadCount: number;
+    }
+  | {
+      mode: "search";
+      q: string;
+      onQueryChange: (value: string) => void;
       currentUser: TopBarCurrentUser | null;
       notificationUnreadCount: number;
     };
@@ -207,47 +217,41 @@ export function FeedTopBar(props: FeedTopBarProps) {
           ⌕
         </span>
 
-        {props.mode === "feed" ? (
-          <input
-            className="si"
-            type="text"
-            placeholder="Search posts, communities, users…"
-            value={props.q}
-            onChange={(e) => props.onQueryChange(e.target.value)}
-          />
-        ) : (
-          <input
-            className="si"
-            type="text"
-            placeholder="Search posts, communities, users…"
-            readOnly
-          />
-        )}
+        <GlobalSearchBox
+          value={props.q}
+          onChange={props.onQueryChange}
+        />
       </div>
 
-      <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
-        {props.mode === "feed"
-          ? sortOptions.map(([ic, value, label]) => (
-                <button
-                  key={value}
-                  className={`srt ${props.sort === value ? "on" : ""}`}
-                  onClick={() => props.onSortChange(value)}
-                  type="button"
-                >
-                  {props.sort === value ? `${ic} ${label}` : label}
-                </button>
-              ))
-          : sortOptions.map(([, value, label], i) => (
-              <Link
-                key={value}
-                href={`/feed?sort=${value}`}
-                className={`srt ${i === 0 ? "on" : ""}`}
-                style={{ textDecoration: "none" }}
-              >
-                {label.toUpperCase()}
-              </Link>
-            ))}
-      </div>
+      {props.mode === "feed" ? (
+        <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
+          {sortOptions.map(([ic, value, label]) => (
+            <button
+              key={value}
+              className={`srt ${props.sort === value ? "on" : ""}`}
+              onClick={() => props.onSortChange(value)}
+              type="button"
+            >
+              {props.sort === value ? `${ic} ${label}` : label}
+            </button>
+          ))}
+        </div>
+      ) : props.mode === "post" ? (
+        <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
+          {sortOptions.map(([, value, label], i) => (
+            <Link
+              key={value}
+              href={`/feed?sort=${value}`}
+              className={`srt ${i === 0 ? "on" : ""}`}
+              style={{ textDecoration: "none" }}
+            >
+              {label.toUpperCase()}
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <div style={{ marginLeft: "auto" }} />
+      )}
 
       <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
         {props.currentUser ? (

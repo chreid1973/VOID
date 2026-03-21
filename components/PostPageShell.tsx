@@ -1527,6 +1527,7 @@ export default function PostPageShell({
   const [editingPost, setEditingPost] = useState(false);
   const [postBody, setPostBody] = useState("");
   const [postPending, setPostPending] = useState(false);
+  const [q, setQ] = useState("");
   const sortedComments = useMemo(
     () => sortComments(post.comments, commentSort),
     [post.comments, commentSort]
@@ -1755,6 +1756,8 @@ export default function PostPageShell({
 
       <FeedTopBar
         mode="post"
+        q={q}
+        onQueryChange={setQ}
         currentUser={currentUser}
         notificationUnreadCount={notificationUnreadCount}
       />
