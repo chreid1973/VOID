@@ -24,8 +24,11 @@ export default function OnboardingForm({
   const router = useRouter();
   const [username, setUsername] = useState(initialUsername);
   const [displayName, setDisplayName] = useState(initialDisplayName);
-  const [pending, setPending] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "submitting" | "redirecting">(
+    "idle"
+  );
   const [notice, setNotice] = useState<ActionNoticeState | null>(null);
+  const pending = phase !== "idle";
 
   useEffect(() => {
     if (!notice) return;
@@ -41,7 +44,7 @@ export default function OnboardingForm({
     e.preventDefault();
     if (pending) return;
 
-    setPending(true);
+    setPhase("submitting");
     setNotice(null);
 
     try {
@@ -65,13 +68,11 @@ export default function OnboardingForm({
         return;
       }
 
-      setNotice({
-        tone: "success",
-        message: "Account setup complete.",
-      });
+      setPhase("redirecting");
       router.replace("/feed");
       router.refresh();
     } catch (error) {
+      setPhase("idle");
       setNotice({
         tone: "error",
         message:
@@ -79,8 +80,6 @@ export default function OnboardingForm({
             ? error.message
             : "Failed to finish account setup.",
       });
-    } finally {
-      setPending(false);
     }
   }
 
@@ -199,9 +198,11 @@ export default function OnboardingForm({
               lineHeight: 1.5,
             }}
           >
-            {pending
-              ? "Setting up your account..."
-              : "Usernames use lowercase letters, numbers, and underscores only. Reserved names like admin, void, moderator, and support are unavailable."}
+            {phase === "redirecting"
+              ? "Account ready. Entering SocialVOID..."
+              : pending
+                ? "Setting up your account..."
+                : "Usernames use lowercase letters, numbers, and underscores only. Reserved names like admin, void, moderator, and support are unavailable."}
           </p>
 
           <button
@@ -223,7 +224,11 @@ export default function OnboardingForm({
               minWidth: 170,
             }}
           >
-            {pending ? "Setting up account..." : "Enter Void"}
+            {phase === "redirecting"
+              ? "Entering SocialVOID..."
+              : pending
+                ? "Setting up account..."
+                : "Enter Void"}
           </button>
         </div>
       </form>

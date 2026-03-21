@@ -96,7 +96,10 @@ export default function SubmitForm({
   const [includeLinkPreviewDescription, setIncludeLinkPreviewDescription] =
     useState(false);
   const [includeLinkPreviewImage, setIncludeLinkPreviewImage] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "submitting" | "redirecting">(
+    "idle"
+  );
+  const loading = phase !== "idle";
   const {
     mentionedUsernames,
     resolvedMentions,
@@ -306,7 +309,7 @@ export default function SubmitForm({
       return;
     }
 
-    setLoading(true);
+    setPhase("submitting");
     setSubmitError(null);
 
     try {
@@ -330,20 +333,21 @@ export default function SubmitForm({
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
+        setPhase("idle");
         setSubmitError(data?.error || "Failed to create post.");
         return;
       }
 
+      setPhase("redirecting");
       router.push("/feed");
       router.refresh();
     } catch (error) {
+      setPhase("idle");
       setSubmitError(
         error instanceof Error
           ? error.message
           : "Something went wrong while creating the post."
       );
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -987,15 +991,19 @@ export default function SubmitForm({
             lineHeight: 1.5,
           }}
         >
-          {loading
+          {phase === "redirecting"
             ? isCrosspost
-              ? "Creating your crosspost..."
-              : imageFile
-                ? "Uploading image and publishing post..."
-                : "Publishing post..."
-            : isCrosspost
-              ? "Crossposts create a new discussion thread while linking back to the original post."
-              : "Posts publish immediately to the selected community."}
+              ? "Crosspost published. Opening feed..."
+              : "Post published. Opening feed..."
+            : loading
+              ? isCrosspost
+                ? "Creating your crosspost..."
+                : imageFile
+                  ? "Uploading image and publishing post..."
+                  : "Publishing post..."
+              : isCrosspost
+                ? "Crossposts create a new discussion thread while linking back to the original post."
+                : "Posts publish immediately to the selected community."}
         </p>
 
         <button
@@ -1016,12 +1024,14 @@ export default function SubmitForm({
             boxShadow: "0 4px 18px rgba(255,72,38,.24)",
             minWidth: 140,
           }}
-        >
-          {loading
-            ? "Posting..."
-            : isCrosspost
-              ? "Crosspost to SocialVOID"
-              : "Post to SocialVOID"}
+          >
+          {phase === "redirecting"
+            ? "Opening feed..."
+            : loading
+              ? "Posting..."
+              : isCrosspost
+                ? "Crosspost to SocialVOID"
+                : "Post to SocialVOID"}
         </button>
       </div>
     </form>
