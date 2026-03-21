@@ -14,7 +14,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Void — a better internet",
+  title: "SocialVOID - a better internet",
   description: "The modern discussion platform",
 };
 

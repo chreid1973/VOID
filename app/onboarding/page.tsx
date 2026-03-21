@@ -104,7 +104,7 @@ export default async function OnboardingPage() {
             }}
           >
             Choose the public username and display name you want to use across
-            Void before you enter the app.
+            SocialVOID before you enter the app.
           </p>
         </div>
 

@@ -60,6 +60,26 @@ function norm(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
 }
 
+function BrandWordmark({ size = 22 }: { size?: number }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "baseline",
+        gap: 0,
+        fontFamily: "var(--font-fraunces), Georgia, serif",
+        fontSize: size,
+        fontWeight: 700,
+        letterSpacing: "-.04em",
+        lineHeight: 1,
+      }}
+    >
+      <span style={{ color: "#ede8e0" }}>Social</span>
+      <span style={{ color: "#ff6d36" }}>VOID</span>
+    </span>
+  );
+}
+
 export function CommunityBadge({
   name,
   displayName,
@@ -133,18 +153,7 @@ export function FeedTopBar(props: FeedTopBarProps) {
             ◈
           </div>
 
-          <span
-            style={{
-              fontFamily: "var(--font-fraunces), Georgia, serif",
-              fontSize: 22,
-              fontWeight: 700,
-              color: "#ede8e0",
-              letterSpacing: "-.04em",
-              lineHeight: 1,
-            }}
-          >
-            void
-          </span>
+          <BrandWordmark />
         </div>
       ) : (
         <Link
@@ -175,18 +184,7 @@ export function FeedTopBar(props: FeedTopBarProps) {
             ◈
           </div>
 
-          <span
-            style={{
-              fontFamily: "var(--font-fraunces), Georgia, serif",
-              fontSize: 22,
-              fontWeight: 700,
-              color: "#ede8e0",
-              letterSpacing: "-.04em",
-              lineHeight: 1,
-            }}
-          >
-            void
-          </span>
+          <BrandWordmark />
         </Link>
       )}
 
@@ -526,7 +524,7 @@ export function FeedSidebar(props: FeedSidebarProps) {
 
       <div style={{ marginTop: 28, padding: "0 10px" }}>
         <p style={{ fontSize: 10, color: "#5f5a54", lineHeight: 1.7 }}>
-          © 2026 Social Void - a better internet
+          © 2026 SocialVOID - a better internet
           <br />
           Privacy · Terms · Help · Careers ·{" "}
           <Link

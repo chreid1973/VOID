@@ -26,6 +26,17 @@ const buttonBaseStyle = {
   letterSpacing: ".01em",
 } as const;
 
+const brandWordmarkStyle = {
+  display: "inline-flex",
+  alignItems: "baseline",
+  gap: 0,
+  fontFamily: "var(--font-fraunces), Georgia, serif",
+  fontSize: 28,
+  fontWeight: 700,
+  letterSpacing: "-.04em",
+  lineHeight: 1,
+} as const;
+
 export default function NotFound() {
   return (
     <div
@@ -54,17 +65,9 @@ export default function NotFound() {
           }}
         >
           <span style={brandMarkStyle}>◈</span>
-          <span
-            style={{
-              fontFamily: "var(--font-fraunces), Georgia, serif",
-              fontSize: 28,
-              fontWeight: 700,
-              color: "#ede8e0",
-              letterSpacing: "-.04em",
-              lineHeight: 1,
-            }}
-          >
-            void
+          <span style={brandWordmarkStyle}>
+            <span style={{ color: "#ede8e0" }}>Social</span>
+            <span style={{ color: "#ff6d36" }}>VOID</span>
           </span>
         </Link>
 

@@ -598,7 +598,7 @@ function RightRail({
           >
             ◈
           </span>
-          void · Stats
+          SocialVOID · Stats
         </h3>
 
         {[

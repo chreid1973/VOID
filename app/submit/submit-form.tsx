@@ -826,8 +826,8 @@ export default function SubmitForm({
           {loading
             ? "Posting..."
             : isCrosspost
-              ? "Crosspost to Void"
-              : "Post to Void"}
+              ? "Crosspost to SocialVOID"
+              : "Post to SocialVOID"}
         </button>
       </div>
     </form>
