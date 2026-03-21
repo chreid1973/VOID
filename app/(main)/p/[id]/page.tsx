@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { notFound, permanentRedirect } from "next/navigation";
 import { getCurrentUser, isAdminUser } from "../../../../auth";
 import { prisma } from "../../../../lib/prisma";
@@ -95,20 +96,16 @@ function buildCommentTree(
   return roots;
 }
 
-export default async function PostPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams?: { from?: string | string[] };
-}) {
-  const renderedAt = new Date().toISOString();
-  const user = await getCurrentUser();
-  const isAdmin = isAdminUser(user);
+async function loadPostPageBase(id: string, includeHidden = false) {
   const post = await prisma.post.findFirst({
-    where: {
-      OR: [{ publicId: params.id }, { id: params.id }],
-    },
+    where: includeHidden
+      ? {
+          OR: [{ publicId: id }, { id }],
+        }
+      : {
+          OR: [{ publicId: id }, { id }],
+          isHidden: false,
+        },
     include: {
       author: {
         select: {
@@ -147,12 +144,10 @@ export default async function PostPage({
     },
   });
 
-  if (!post) return notFound();
-  if (post.isHidden && !isAdmin) return notFound();
-  const backHref = resolveBackHref(post.community.name, searchParams?.from);
-  if (params.id !== post.publicId) {
-    permanentRedirect(`/p/${post.publicId}?from=${encodeURIComponent(backHref)}`);
+  if (!post) {
+    return null;
   }
+
   const [comments, communities, railPosts] = await Promise.all([
     prisma.comment.findMany({
       where: {
@@ -170,11 +165,60 @@ export default async function PostPage({
         },
       },
     }),
-
     loadCommunityNavigationItems(),
-
     loadTrendingRailPosts(5, post.id),
   ]);
+
+  const validMentionUsernames = await loadExistingMentionUsernames([
+    post.title,
+    post.body,
+    ...comments.map((comment) => comment.body),
+  ]);
+
+  return {
+    post,
+    comments,
+    communities,
+    railPosts,
+    validMentionUsernames,
+  };
+}
+
+const loadCachedPublicPostPageBase = unstable_cache(
+  async (id: string) => loadPostPageBase(id, false),
+  ["post-page-content"],
+  {
+    revalidate: 30,
+    tags: ["post-page-content"],
+  }
+);
+
+export default async function PostPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams?: { from?: string | string[] };
+}) {
+  const renderedAt = new Date().toISOString();
+  const [user, cachedPostPageBase] = await Promise.all([
+    getCurrentUser(),
+    loadCachedPublicPostPageBase(params.id),
+  ]);
+  const isAdmin = isAdminUser(user);
+  const postPageBase =
+    cachedPostPageBase ?? (isAdmin ? await loadPostPageBase(params.id, true) : null);
+
+  if (!postPageBase) return notFound();
+
+  const { post, comments, communities, railPosts, validMentionUsernames } =
+    postPageBase;
+
+  if (post.isHidden && !isAdmin) return notFound();
+  const backHref = resolveBackHref(post.community.name, searchParams?.from);
+  if (params.id !== post.publicId) {
+    permanentRedirect(`/p/${post.publicId}?from=${encodeURIComponent(backHref)}`);
+  }
   const [postVote, commentVotes, savedPost, unreadNotificationCount] = user
     ? await Promise.all([
         prisma.vote.findUnique({
@@ -222,11 +266,6 @@ export default async function PostPage({
   const commentVoteMap = new Map(
     commentVotes.map((vote) => [vote.commentId as string, vote.value])
   );
-  const validMentionUsernames = await loadExistingMentionUsernames([
-    post.title,
-    post.body,
-    ...comments.map((comment) => comment.body),
-  ]);
   const validMentionSet = new Set(validMentionUsernames);
 
   const formattedPost = {

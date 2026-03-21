@@ -116,7 +116,7 @@ export function CommunityBadge({
   if (!href) return content;
 
   return (
-    <Link href={href} style={{ textDecoration: "none" }}>
+    <Link href={href} prefetch={false} style={{ textDecoration: "none" }}>
       {content}
     </Link>
   );
@@ -236,6 +236,7 @@ export function FeedTopBar(props: FeedTopBarProps) {
             <Link
               key={value}
               href={`/feed?sort=${value}`}
+              prefetch={false}
               className={`srt ${i === 0 ? "on" : ""}`}
               style={{ textDecoration: "none" }}
             >
@@ -448,6 +449,7 @@ export function FeedSidebar(props: FeedSidebarProps) {
         <>
           <Link
             href="/feed"
+            prefetch={false}
             className="com-item"
             style={{ textDecoration: "none" }}
           >
@@ -457,6 +459,7 @@ export function FeedSidebar(props: FeedSidebarProps) {
 
           <Link
             href="/feed?scope=popular"
+            prefetch={false}
             className="com-item"
             style={{ textDecoration: "none" }}
           >
@@ -466,6 +469,7 @@ export function FeedSidebar(props: FeedSidebarProps) {
 
           <Link
             href="/feed?scope=following"
+            prefetch={false}
             className="com-item"
             style={{ textDecoration: "none" }}
           >
@@ -475,6 +479,7 @@ export function FeedSidebar(props: FeedSidebarProps) {
 
           <Link
             href="/feed?scope=all"
+            prefetch={false}
             className="com-item"
             style={{ textDecoration: "none" }}
           >
@@ -530,6 +535,7 @@ export function FeedSidebar(props: FeedSidebarProps) {
           <Link
             key={c.id}
             href={`/feed?community=${encodeURIComponent(c.name)}`}
+            prefetch={false}
             className={`com-item ${
               norm(activeCommunity) === norm(c.name) ? "active" : ""
             }`}
@@ -582,6 +588,7 @@ export function FeedSidebar(props: FeedSidebarProps) {
           Privacy · Terms · Help · Careers ·{" "}
           <Link
             href="/moderation-philosophy"
+            prefetch={false}
             style={{ color: "#7b746c", textDecoration: "none" }}
           >
             Moderation

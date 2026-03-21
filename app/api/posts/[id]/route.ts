@@ -55,6 +55,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       },
     });
 
+    revalidateTag("post-page-content");
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof Error && err.message === "UNAUTHORIZED") {
@@ -101,6 +103,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     }
 
     revalidateTag("community-navigation");
+    revalidateTag("post-page-content");
 
     return NextResponse.json({ ok: true });
   } catch (err) {

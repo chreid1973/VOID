@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/auth";
 
@@ -49,6 +50,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       where: { id: params.id },
       data: { body },
     });
+
+    revalidateTag("post-page-content");
 
     return NextResponse.json({ ok: true });
   } catch (err) {
@@ -117,6 +120,8 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
         }),
       ]);
     }
+
+    revalidateTag("post-page-content");
 
     return NextResponse.json({ ok: true });
   } catch (err) {

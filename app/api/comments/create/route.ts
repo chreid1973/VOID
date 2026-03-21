@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { revalidateTag } from "next/cache";
 import { prisma } from "../../../../lib/prisma";
 import { createCommentNotifications } from "../../../../lib/notifications";
 
@@ -107,6 +108,8 @@ export async function POST(req: Request) {
       parentAuthorId,
     });
   });
+
+  revalidateTag("post-page-content");
 
   return NextResponse.json({ ok: true });
 }

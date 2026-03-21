@@ -299,6 +299,7 @@ function PostCard({
 
             <Link
               href={`/u/${encodeURIComponent(p.authorUsername)}`}
+              prefetch={false}
               style={{ fontSize: 11.5, color: "#3d3c3a", textDecoration: "none" }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -315,6 +316,7 @@ function PostCard({
           {p.crosspostSource ? (
             <Link
               href={postHref(p.crosspostSource.publicId)}
+              prefetch={false}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -337,6 +339,7 @@ function PostCard({
 
           <Link
             href={postHref(p.publicId)}
+            prefetch={false}
             aria-label={`Open post: ${p.title}`}
             style={{ display: "block", textDecoration: "none", color: "inherit" }}
           >
@@ -415,6 +418,7 @@ function PostCard({
           <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
             <Link
               href={postHref(p.publicId)}
+              prefetch={false}
               className="act"
               style={{ textDecoration: "none" }}
               onClick={(e) => e.stopPropagation()}
@@ -477,6 +481,7 @@ function RightRail({
 
         <Link
           href="/submit"
+          prefetch={false}
           style={{
             width: "100%",
             background: "#ff4826",
@@ -519,6 +524,7 @@ function RightRail({
           <Link
             key={p.id}
             href={postHref(p.publicId)}
+            prefetch={false}
             style={{
               display: "flex",
               gap: 10,

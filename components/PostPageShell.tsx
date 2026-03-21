@@ -483,6 +483,7 @@ function RightRail({
 
         <Link
           href="/submit"
+          prefetch={false}
           style={{
             width: "100%",
             background: "#ff4826",
@@ -523,8 +524,9 @@ function RightRail({
 
         {posts.slice(0, 5).map((p, i) => (
           <Link
-            key={p.id}
+              key={p.id}
             href={`/p/${p.publicId}`}
+            prefetch={false}
             style={{
               display: "flex",
               gap: 10,
@@ -1246,11 +1248,12 @@ const CommentNode = memo(function CommentNode({
             {authorLabel}
           </span>
         ) : (
-          <Link
-            href={`/u/${encodeURIComponent(comment.author.username)}`}
-            style={{
-              fontSize: isReply ? 12 : 12.5,
-              fontWeight: 600,
+            <Link
+              href={`/u/${encodeURIComponent(comment.author.username)}`}
+              prefetch={false}
+              style={{
+                fontSize: isReply ? 12 : 12.5,
+                fontWeight: 600,
               color: "#b0aba4",
               textDecoration: "none",
             }}
@@ -1924,6 +1927,7 @@ export default function PostPageShell({
           <div style={{ animation: "rise .3s ease" }}>
             <Link
               href={backHref}
+              prefetch={false}
               style={{
                 background: "none",
                 border: "1px solid #242323",
@@ -1969,6 +1973,7 @@ export default function PostPageShell({
                 <span style={{ fontSize: 12, color: "#464442" }}>
                   <Link
                     href={`/u/${encodeURIComponent(post.author.username)}`}
+                    prefetch={false}
                     style={{ color: "inherit", textDecoration: "none" }}
                   >
                     u/{post.author.displayName || post.author.username}
@@ -1980,6 +1985,7 @@ export default function PostPageShell({
               {post.crosspostSource ? (
                 <Link
                   href={`/p/${post.crosspostSource.publicId}`}
+                  prefetch={false}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
@@ -2236,6 +2242,7 @@ export default function PostPageShell({
                 {post.isOwner && !editingPost ? (
                   <Link
                     href={`/submit?crosspost=${encodeURIComponent(post.id)}`}
+                    prefetch={false}
                     className="act"
                     style={{ textDecoration: "none" }}
                   >

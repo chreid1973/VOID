@@ -35,6 +35,7 @@ export function renderMentionTextNodes(
         <Link
           key={`${keyPrefix}-${username}-${key}`}
           href={`/u/${encodeURIComponent(username)}`}
+          prefetch={false}
           style={{
             color: "#ff8a57",
             textDecoration: "none",
