@@ -5,8 +5,9 @@ import { loadTrendingRailPosts } from "../../../../lib/trendingRail";
 import PostPageShell from "../../../../components/PostPageShell";
 import { resolveStoredImageUrl } from "../../../../r2";
 
-function timeAgo(date: Date) {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+function timeAgo(date: Date | string) {
+  const timestamp = date instanceof Date ? date.getTime() : new Date(date).getTime();
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
 
   if (seconds < 60) return "just now";
 

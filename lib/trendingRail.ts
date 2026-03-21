@@ -11,7 +11,7 @@ export type TrendingRailPost = {
   communityDisplayName: string;
   communityColor: string;
   communityIcon: string;
-  createdAt: Date;
+  createdAt: string;
 };
 
 const TRENDING_LIMIT_BUFFER = 12;
@@ -120,13 +120,13 @@ const loadCachedTrendingRailPosts = unstable_cache(
         id: post.id,
         publicId: post.publicId,
         title: post.title,
-        votes: post.score,
-        community: post.community.name,
-        communityDisplayName: post.community.displayName,
-        communityColor: post.community.color,
-        communityIcon: post.community.icon,
-        createdAt: post.createdAt,
-      }));
+      votes: post.score,
+      community: post.community.name,
+      communityDisplayName: post.community.displayName,
+      communityColor: post.community.color,
+      communityIcon: post.community.icon,
+      createdAt: post.createdAt.toISOString(),
+    }));
   },
   ["trending-rail-posts"],
   { revalidate: 60 }
