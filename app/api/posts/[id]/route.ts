@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/auth";
 import { deleteObject, extractStoredR2Key } from "@/r2";
@@ -98,6 +99,8 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
         console.error("[DELETE /api/posts/:id] failed to delete image", cleanupErr);
       }
     }
+
+    revalidateTag("community-navigation");
 
     return NextResponse.json({ ok: true });
   } catch (err) {

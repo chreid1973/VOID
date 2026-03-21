@@ -1,6 +1,7 @@
 import { notFound, permanentRedirect } from "next/navigation";
 import { getCurrentUser, isAdminUser } from "../../../../auth";
 import { prisma } from "../../../../lib/prisma";
+import { loadCommunityNavigationItems } from "../../../../lib/communityNav";
 import { loadTrendingRailPosts } from "../../../../lib/trendingRail";
 import PostPageShell from "../../../../components/PostPageShell";
 import { resolveStoredImageUrl } from "../../../../r2";
@@ -170,22 +171,7 @@ export default async function PostPage({
       },
     }),
 
-    prisma.community.findMany({
-      orderBy: { displayName: "asc" },
-      select: {
-        id: true,
-        name: true,
-        displayName: true,
-        color: true,
-        icon: true,
-        _count: {
-          select: {
-            posts: true,
-            members: true,
-          },
-        },
-      },
-    }),
+    loadCommunityNavigationItems(),
 
     loadTrendingRailPosts(5, post.id),
   ]);
@@ -310,8 +296,8 @@ export default async function PostPage({
     displayName: community.displayName,
     color: community.color,
     icon: community.icon,
-    memberCount: community._count.members,
-    postCount: community._count.posts,
+    memberCount: community.memberCount,
+    postCount: community.postCount,
     isMember: false,
   }));
 

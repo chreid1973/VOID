@@ -1,8 +1,8 @@
-import { auth } from "@clerk/nextjs/server";
 import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import FeedClient from "../../../components/FeedClient";
-import { getCurrentUser } from "../../../auth";
+import { getAuthState } from "../../../auth";
+import { loadCommunityNavigationItems } from "../../../lib/communityNav";
 import { prisma } from "../../../lib/prisma";
 import { compareRankedPosts, type FeedSort } from "../../../lib/postRanking";
 import { resolveStoredImageUrl } from "../../../r2";
@@ -73,7 +73,7 @@ export default async function FeedPage({
     page?: string | string[];
   };
 }) {
-  const [{ userId }, user] = await Promise.all([auth(), getCurrentUser()]);
+  const { userId, user } = await getAuthState();
 
   if (userId && !user) {
     redirect("/onboarding");
@@ -101,22 +101,7 @@ export default async function FeedPage({
           },
         })
       : Promise.resolve([]),
-    prisma.community.findMany({
-      orderBy: { displayName: "asc" },
-      select: {
-        id: true,
-        name: true,
-        displayName: true,
-        icon: true,
-        color: true,
-        _count: {
-          select: {
-            posts: true,
-            members: true,
-          },
-        },
-      },
-    }),
+    loadCommunityNavigationItems(),
     loadTrendingRailPosts(5),
     user
       ? prisma.notification.count({
@@ -248,58 +233,16 @@ export default async function FeedPage({
       select: {
         id: true,
         score: true,
+        commentCount: true,
         createdAt: true,
       },
     });
 
-    const rankedPostIds = rankedPostsRaw.map((post) => post.id);
-    const [topLevelCommentCounts, replyCounts] =
-      rankedPostIds.length > 0
-        ? await Promise.all([
-            prisma.comment.groupBy({
-              by: ["postId"],
-              where: {
-                postId: {
-                  in: rankedPostIds,
-                },
-                isDeleted: false,
-                isHidden: false,
-                parentId: null,
-              },
-              _count: {
-                _all: true,
-              },
-            }),
-            prisma.comment.groupBy({
-              by: ["postId"],
-              where: {
-                postId: {
-                  in: rankedPostIds,
-                },
-                isDeleted: false,
-                isHidden: false,
-                parentId: {
-                  not: null,
-                },
-              },
-              _count: {
-                _all: true,
-              },
-            }),
-          ])
-        : [[], []];
-
-    const topLevelCommentCountMap = new Map(
-      topLevelCommentCounts.map((entry) => [entry.postId, entry._count._all])
-    );
-    const replyCountMap = new Map(
-      replyCounts.map((entry) => [entry.postId, entry._count._all])
-    );
     const rankedPosts = rankedPostsRaw.map((post) => ({
       id: post.id,
       score: post.score,
-      commentCount: topLevelCommentCountMap.get(post.id) ?? 0,
-      replyCount: replyCountMap.get(post.id) ?? 0,
+      commentCount: post.commentCount,
+      replyCount: 0,
       createdAt: post.createdAt,
     }));
 
@@ -416,8 +359,8 @@ export default async function FeedPage({
     displayName: community.displayName,
     color: community.color,
     icon: community.icon,
-    memberCount: community._count.members,
-    postCount: community._count.posts,
+    memberCount: community.memberCount,
+    postCount: community.postCount,
     isMember: joinedCommunityIdSet.has(community.id),
   }));
 

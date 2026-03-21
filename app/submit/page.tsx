@@ -1,6 +1,6 @@
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "../../auth";
+import { getAuthState } from "../../auth";
+import { loadCommunityNavigationItems } from "../../lib/communityNav";
 import { prisma } from "../../lib/prisma";
 import { resolveStoredImageUrl } from "../../r2";
 import SubmitForm from "./submit-form";
@@ -12,7 +12,7 @@ export default async function SubmitPage({
     crosspost?: string | string[];
   };
 }) {
-  const [{ userId }, user] = await Promise.all([auth(), getCurrentUser()]);
+  const { userId, user } = await getAuthState();
 
   if (userId && !user) {
     redirect("/onboarding");
@@ -23,14 +23,7 @@ export default async function SubmitPage({
     : searchParams?.crosspost;
 
   const [communities, crosspostSource] = await Promise.all([
-    prisma.community.findMany({
-      orderBy: { displayName: "asc" },
-      select: {
-        id: true,
-        name: true,
-        displayName: true,
-      },
-    }),
+    loadCommunityNavigationItems(),
     crosspostId && user
       ? prisma.post.findUnique({
           where: { id: crosspostId },
@@ -113,7 +106,11 @@ export default async function SubmitPage({
           }}
         >
           <SubmitForm
-            communities={communities}
+            communities={communities.map((community) => ({
+              id: community.id,
+              name: community.name,
+              displayName: community.displayName,
+            }))}
             crosspostSource={
               crosspostSource
                 ? {

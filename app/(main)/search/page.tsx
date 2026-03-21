@@ -1,7 +1,7 @@
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "../../../auth";
+import { getAuthState } from "../../../auth";
 import SearchPageShell from "../../../components/SearchPageShell";
+import { loadCommunityNavigationItems } from "../../../lib/communityNav";
 import { searchEverything } from "../../../lib/search";
 import { prisma } from "../../../lib/prisma";
 import { resolveStoredImageUrl } from "../../../r2";
@@ -17,7 +17,7 @@ export default async function SearchPage({
     q?: string | string[];
   };
 }) {
-  const [{ userId }, user] = await Promise.all([auth(), getCurrentUser()]);
+  const { userId, user } = await getAuthState();
 
   if (userId && !user) {
     redirect("/onboarding");
@@ -35,22 +35,7 @@ export default async function SearchPage({
             },
           })
         : Promise.resolve([]),
-      prisma.community.findMany({
-        orderBy: { displayName: "asc" },
-        select: {
-          id: true,
-          name: true,
-          displayName: true,
-          icon: true,
-          color: true,
-          _count: {
-            select: {
-              posts: true,
-              members: true,
-            },
-          },
-        },
-      }),
+      loadCommunityNavigationItems(),
       user
         ? prisma.notification.count({
             where: {
@@ -76,8 +61,8 @@ export default async function SearchPage({
     displayName: community.displayName,
     color: community.color,
     icon: community.icon,
-    memberCount: community._count.members,
-    postCount: community._count.posts,
+    memberCount: community.memberCount,
+    postCount: community.postCount,
     isMember: joinedCommunityIdSet.has(community.id),
   }));
 

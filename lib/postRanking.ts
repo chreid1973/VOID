@@ -28,13 +28,28 @@ function ageHours(createdAt: Date, nowMs: number) {
   return Math.max((nowMs - createdAt.getTime()) / 3_600_000, 0);
 }
 
+function discussionScore(
+  post: RankedPost,
+  commentWeight: number,
+  replyWeight: number
+) {
+  const topLevelCommentCount = Math.max(post.commentCount, 0);
+  const replyCount = Math.max(post.replyCount, 0);
+
+  if (replyCount > 0) {
+    return topLevelCommentCount * commentWeight + replyCount * replyWeight;
+  }
+
+  const averageWeight = (commentWeight + replyWeight) / 2;
+  return topLevelCommentCount * averageWeight;
+}
+
 export function hotScore(post: RankedPost, nowMs: number) {
   const netVotes = post.score;
   const hours = ageHours(post.createdAt, nowMs);
   const hotBase =
     netVotes * HOT_RANKING.voteWeight +
-    post.commentCount * HOT_RANKING.commentWeight +
-    post.replyCount * HOT_RANKING.replyWeight;
+    discussionScore(post, HOT_RANKING.commentWeight, HOT_RANKING.replyWeight);
 
   return hotBase / Math.pow(hours + HOT_RANKING.ageOffsetHours, HOT_RANKING.agePower);
 }
@@ -44,8 +59,11 @@ export function risingScore(post: RankedPost, nowMs: number) {
   const hours = ageHours(post.createdAt, nowMs);
   const risingBase =
     netVotes * RISING_RANKING.voteWeight +
-    post.commentCount * RISING_RANKING.commentWeight +
-    post.replyCount * RISING_RANKING.replyWeight;
+    discussionScore(
+      post,
+      RISING_RANKING.commentWeight,
+      RISING_RANKING.replyWeight
+    );
 
   return risingBase / Math.pow(
     hours + RISING_RANKING.ageOffsetHours,

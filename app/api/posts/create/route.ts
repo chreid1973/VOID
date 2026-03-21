@@ -2,6 +2,7 @@ import { prisma } from "../../../../lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { Prisma, PostType } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import {
   fetchLinkMetadata,
   getLinkFallbackTitle,
@@ -326,6 +327,8 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+
+  revalidateTag("community-navigation");
 
   return NextResponse.json({ ok: true, postId: post.id, publicId: post.publicId });
 }

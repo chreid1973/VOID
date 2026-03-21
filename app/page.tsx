@@ -1,9 +1,8 @@
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "../auth";
+import { getAuthState } from "../auth";
 
 export default async function Home() {
-  const [{ userId }, user] = await Promise.all([auth(), getCurrentUser()]);
+  const { userId, user } = await getAuthState();
 
   if (userId && !user) {
     redirect("/onboarding");

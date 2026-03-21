@@ -1,10 +1,10 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import MentionAutocompleteMenu from "@/components/MentionAutocompleteMenu";
 import MentionText from "@/components/MentionText";
-import RichPostEditor from "@/components/RichPostEditor";
 import { useMentionAutocomplete } from "@/components/useMentionAutocomplete";
 import { useResolvedMentions } from "@/components/useResolvedMentions";
 
@@ -47,6 +47,26 @@ const ALLOWED_IMAGE_TYPES = [
   "image/gif",
 ];
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
+const RichPostEditor = dynamic(() => import("@/components/RichPostEditor"), {
+  ssr: false,
+  loading: () => (
+    <div
+      style={{
+        border: "1px solid #252424",
+        borderRadius: 14,
+        background: "#111010",
+        minHeight: 260,
+        padding: "18px 16px",
+        color: "#6f6963",
+        fontSize: 13,
+        lineHeight: 1.6,
+      }}
+    >
+      Loading editor...
+    </div>
+  ),
+});
 
 function formatFileSize(bytes: number) {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;

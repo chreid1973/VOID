@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "../../../auth";
+import { getAuthState } from "../../../auth";
 import { prisma } from "../../../lib/prisma";
 import { NotificationType } from "@prisma/client";
 
@@ -46,7 +45,7 @@ function notificationCopy(
 }
 
 export default async function NotificationsPage() {
-  const [{ userId }, user] = await Promise.all([auth(), getCurrentUser()]);
+  const { userId, user } = await getAuthState();
 
   if (!userId) {
     redirect("/sign-in");

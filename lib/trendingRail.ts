@@ -31,6 +31,7 @@ const loadCachedTrendingRailPosts = unstable_cache(
         id: true,
         publicId: true,
         score: true,
+        commentCount: true,
         createdAt: true,
       },
     });
@@ -39,51 +40,11 @@ const loadCachedTrendingRailPosts = unstable_cache(
       return [] satisfies TrendingRailPost[];
     }
 
-    const rankedPostIds = rankedPostsRaw.map((post) => post.id);
-    const [topLevelCommentCounts, replyCounts] = await Promise.all([
-      prisma.comment.groupBy({
-        by: ["postId"],
-        where: {
-          postId: {
-            in: rankedPostIds,
-          },
-          isDeleted: false,
-          isHidden: false,
-          parentId: null,
-        },
-        _count: {
-          _all: true,
-        },
-      }),
-      prisma.comment.groupBy({
-        by: ["postId"],
-        where: {
-          postId: {
-            in: rankedPostIds,
-          },
-          isDeleted: false,
-          isHidden: false,
-          parentId: {
-            not: null,
-          },
-        },
-        _count: {
-          _all: true,
-        },
-      }),
-    ]);
-
-    const topLevelCommentCountMap = new Map(
-      topLevelCommentCounts.map((entry) => [entry.postId, entry._count._all])
-    );
-    const replyCountMap = new Map(
-      replyCounts.map((entry) => [entry.postId, entry._count._all])
-    );
     const rankedPosts = rankedPostsRaw.map((post) => ({
       id: post.id,
       score: post.score,
-      commentCount: topLevelCommentCountMap.get(post.id) ?? 0,
-      replyCount: replyCountMap.get(post.id) ?? 0,
+      commentCount: post.commentCount,
+      replyCount: 0,
       createdAt: post.createdAt,
     }));
 

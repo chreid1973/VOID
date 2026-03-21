@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/auth";
 
@@ -35,6 +36,8 @@ export async function POST(_req: NextRequest, { params }: Params) {
       update: {},
     });
 
+    revalidateTag("community-navigation");
+
     return NextResponse.json({ ok: true, isMember: true });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
@@ -59,6 +62,8 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
         communityId: params.id,
       },
     });
+
+    revalidateTag("community-navigation");
 
     return NextResponse.json({ ok: true, isMember: false });
   } catch (error) {

@@ -1,8 +1,40 @@
 import { auth } from "@clerk/nextjs/server";
+import { cache } from "react";
 import { prisma } from "./prisma";
 
+const getClerkAuth = cache(async () => auth());
+
+export const getAuthState = cache(async () => {
+  const { userId } = await getClerkAuth();
+
+  if (!userId) {
+    return {
+      userId: null,
+      user: null,
+    };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { clerkId: userId },
+  });
+
+  return {
+    userId,
+    user,
+  };
+});
+
 export async function getCurrentUser() {
-  const { userId: clerkId } = await auth();
+  const { user } = await getAuthState();
+  return user;
+}
+
+export async function getCurrentClerkUserId() {
+  const { userId } = await getAuthState();
+  return userId;
+}
+
+export async function getCurrentUserByClerkId(clerkId: string | null | undefined) {
   if (!clerkId) return null;
 
   return prisma.user.findUnique({
