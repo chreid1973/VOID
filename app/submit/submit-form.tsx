@@ -347,6 +347,17 @@ export default function SubmitForm({
     }
   }
 
+  function handleCancel() {
+    if (loading) return;
+
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+
+    router.push("/feed");
+  }
+
   const inputStyle: React.CSSProperties = {
     width: "100%",
     background: "#111010",
@@ -978,33 +989,51 @@ export default function SubmitForm({
                 : "Posts publish immediately to the selected community."}
         </p>
 
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            background: loading ? "#a63d28" : "#ff4826",
-            border: "none",
-            borderRadius: 10,
-            color: "#fff",
-            fontFamily: "var(--font-outfit), sans-serif",
-            fontSize: 14,
-            fontWeight: 700,
-            padding: "11px 20px",
-            cursor: loading ? "not-allowed" : "pointer",
-            transition: "opacity .15s, transform .1s",
-            letterSpacing: ".03em",
-            boxShadow: "0 4px 18px rgba(255,72,38,.24)",
-            minWidth: 140,
-          }}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            type="button"
+            className="act"
+            onClick={handleCancel}
+            disabled={loading}
+            style={{
+              border: "1px solid #2a2828",
+              borderRadius: 10,
+              padding: "11px 16px",
+              opacity: loading ? 0.6 : 1,
+              cursor: loading ? "not-allowed" : "pointer",
+            }}
           >
-          {phase === "redirecting"
-            ? "Opening feed..."
-            : loading
-              ? "Posting..."
-              : isCrosspost
-                ? "Crosspost to SocialVOID"
-                : "Post to SocialVOID"}
-        </button>
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              background: loading ? "#a63d28" : "#ff4826",
+              border: "none",
+              borderRadius: 10,
+              color: "#fff",
+              fontFamily: "var(--font-outfit), sans-serif",
+              fontSize: 14,
+              fontWeight: 700,
+              padding: "11px 20px",
+              cursor: loading ? "not-allowed" : "pointer",
+              transition: "opacity .15s, transform .1s",
+              letterSpacing: ".03em",
+              boxShadow: "0 4px 18px rgba(255,72,38,.24)",
+              minWidth: 140,
+            }}
+          >
+            {phase === "redirecting"
+              ? "Opening feed..."
+              : loading
+                ? "Posting..."
+                : isCrosspost
+                  ? "Crosspost to SocialVOID"
+                  : "Post to SocialVOID"}
+          </button>
+        </div>
       </div>
     </form>
   );
