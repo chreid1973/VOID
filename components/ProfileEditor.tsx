@@ -11,6 +11,20 @@ const ALLOWED_IMAGE_TYPES = [
   "image/gif",
 ];
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const FEED_SCOPE_OPTIONS = [
+  { value: "home", label: "Home Feed" },
+  { value: "following", label: "Following" },
+  { value: "popular", label: "Popular" },
+  { value: "all", label: "All Posts" },
+] as const;
+const FEED_SORT_OPTIONS = [
+  { value: "hot", label: "Hot" },
+  { value: "new", label: "New" },
+  { value: "top", label: "Top" },
+  { value: "rising", label: "Rising" },
+] as const;
+type FeedPreferenceScope = (typeof FEED_SCOPE_OPTIONS)[number]["value"];
+type FeedPreferenceSort = (typeof FEED_SORT_OPTIONS)[number]["value"];
 
 function formatFileSize(bytes: number) {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -32,6 +46,8 @@ function parseApiError(data: any, fallback: string) {
     data?.error?.fieldErrors?.displayName?.[0] ||
     data?.error?.fieldErrors?.bio?.[0] ||
     data?.error?.fieldErrors?.avatarKey?.[0] ||
+    data?.error?.fieldErrors?.defaultFeedScope?.[0] ||
+    data?.error?.fieldErrors?.defaultFeedSort?.[0] ||
     data?.error?.fieldErrors?.contentType?.[0] ||
     data?.error?.fieldErrors?.size?.[0] ||
     data?.error ||
@@ -44,11 +60,15 @@ export default function ProfileEditor({
   initialBio,
   initialAvatarValue,
   initialAvatarUrl,
+  initialDefaultFeedScope,
+  initialDefaultFeedSort,
 }: {
   initialDisplayName: string | null;
   initialBio: string | null;
   initialAvatarValue: string | null;
   initialAvatarUrl: string | null;
+  initialDefaultFeedScope: FeedPreferenceScope;
+  initialDefaultFeedSort: FeedPreferenceSort;
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -59,6 +79,10 @@ export default function ProfileEditor({
   const [avatarValue, setAvatarValue] = useState(initialAvatarValue);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState(initialAvatarUrl);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [defaultFeedScope, setDefaultFeedScope] =
+    useState<FeedPreferenceScope>(initialDefaultFeedScope);
+  const [defaultFeedSort, setDefaultFeedSort] =
+    useState<FeedPreferenceSort>(initialDefaultFeedSort);
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState<ActionNoticeState | null>(null);
 
@@ -70,10 +94,14 @@ export default function ProfileEditor({
     setAvatarValue(initialAvatarValue);
     setAvatarPreviewUrl(initialAvatarUrl);
     setAvatarFile(null);
+    setDefaultFeedScope(initialDefaultFeedScope);
+    setDefaultFeedSort(initialDefaultFeedSort);
   }, [
     initialAvatarUrl,
     initialAvatarValue,
     initialBio,
+    initialDefaultFeedScope,
+    initialDefaultFeedSort,
     initialDisplayName,
     isEditing,
   ]);
@@ -110,6 +138,8 @@ export default function ProfileEditor({
     setAvatarValue(initialAvatarValue);
     setAvatarPreviewUrl(initialAvatarUrl);
     setAvatarFile(null);
+    setDefaultFeedScope(initialDefaultFeedScope);
+    setDefaultFeedSort(initialDefaultFeedSort);
     setNotice(null);
 
     if (fileInputRef.current) {
@@ -235,6 +265,8 @@ export default function ProfileEditor({
           displayName,
           bio,
           avatarKey: nextAvatarValue,
+          defaultFeedScope,
+          defaultFeedSort,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -253,6 +285,8 @@ export default function ProfileEditor({
       setAvatarPreviewUrl(data?.user?.resolvedAvatarUrl ?? null);
       setDisplayName(data?.user?.displayName ?? "");
       setBio(data?.user?.bio ?? "");
+      setDefaultFeedScope(data?.user?.defaultFeedScope ?? initialDefaultFeedScope);
+      setDefaultFeedSort(data?.user?.defaultFeedSort ?? initialDefaultFeedSort);
       setIsEditing(false);
       setNotice({
         tone: "success",
@@ -361,6 +395,103 @@ export default function ProfileEditor({
               />
               <p style={{ fontSize: 11.5, color: "#6f6963", marginTop: 6 }}>
                 {bio.length}/280 characters
+              </p>
+            </div>
+
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 11,
+                  color: "#8b847c",
+                  textTransform: "uppercase",
+                  letterSpacing: ".08em",
+                  marginBottom: 8,
+                }}
+              >
+                Feed Preferences
+              </label>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: 12,
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: 11.5,
+                      color: "#9b948c",
+                      marginBottom: 8,
+                    }}
+                  >
+                    Default Feed
+                  </label>
+                  <select
+                    value={defaultFeedScope}
+                    onChange={(e) =>
+                      setDefaultFeedScope(e.target.value as FeedPreferenceScope)
+                    }
+                    style={{
+                      width: "100%",
+                      background: "#151414",
+                      border: "1px solid #2a2828",
+                      borderRadius: 10,
+                      padding: "10px 12px",
+                      color: "#e6e1da",
+                      fontSize: 13.5,
+                      outline: "none",
+                    }}
+                  >
+                    {FEED_SCOPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: 11.5,
+                      color: "#9b948c",
+                      marginBottom: 8,
+                    }}
+                  >
+                    Default Sort
+                  </label>
+                  <select
+                    value={defaultFeedSort}
+                    onChange={(e) =>
+                      setDefaultFeedSort(e.target.value as FeedPreferenceSort)
+                    }
+                    style={{
+                      width: "100%",
+                      background: "#151414",
+                      border: "1px solid #2a2828",
+                      borderRadius: 10,
+                      padding: "10px 12px",
+                      color: "#e6e1da",
+                      fontSize: 13.5,
+                      outline: "none",
+                    }}
+                  >
+                    {FEED_SORT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <p style={{ fontSize: 11.5, color: "#6f6963", marginTop: 8 }}>
+                Used when you open the main feed without a specific filter.
               </p>
             </div>
 

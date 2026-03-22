@@ -569,7 +569,7 @@ export function FeedSidebar(props: FeedSidebarProps) {
   return (
     <aside className="feed-sidebar">
       <div className="sect-label" style={{ marginTop: 8 }}>
-        Navigate
+        Feeds
       </div>
 
       {props.mode === "feed" ? (

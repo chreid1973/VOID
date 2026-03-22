@@ -9,6 +9,16 @@ import {
 } from "@/r2";
 
 const DISPLAY_NAME_CHANGE_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
+const FEED_SCOPE_VALUES = ["home", "following", "popular", "all"] as const;
+const FEED_SORT_VALUES = ["hot", "new", "top", "rising"] as const;
+
+function toPrismaFeedScope(value: (typeof FEED_SCOPE_VALUES)[number]) {
+  return value.toUpperCase() as "HOME" | "FOLLOWING" | "POPULAR" | "ALL";
+}
+
+function toPrismaFeedSort(value: (typeof FEED_SORT_VALUES)[number]) {
+  return value.toUpperCase() as "HOT" | "NEW" | "TOP" | "RISING";
+}
 
 function formatCooldownDays(msRemaining: number) {
   return Math.ceil(msRemaining / (24 * 60 * 60 * 1000));
@@ -18,6 +28,8 @@ const profileSchema = z.object({
   displayName: z.string().trim().max(40).optional(),
   bio: z.string().trim().max(280).optional(),
   avatarKey: z.string().trim().max(512).nullable().optional(),
+  defaultFeedScope: z.enum(FEED_SCOPE_VALUES).optional(),
+  defaultFeedSort: z.enum(FEED_SORT_VALUES).optional(),
 });
 
 export async function PATCH(req: NextRequest) {
@@ -94,6 +106,14 @@ export async function PATCH(req: NextRequest) {
             ? data.bio.trim() || null
             : user.bio,
         avatarUrl: nextAvatarUrl,
+        defaultFeedScope:
+          data.defaultFeedScope !== undefined
+            ? toPrismaFeedScope(data.defaultFeedScope)
+            : user.defaultFeedScope,
+        defaultFeedSort:
+          data.defaultFeedSort !== undefined
+            ? toPrismaFeedSort(data.defaultFeedSort)
+            : user.defaultFeedSort,
       },
       select: {
         username: true,
@@ -101,6 +121,8 @@ export async function PATCH(req: NextRequest) {
         displayNameUpdatedAt: true,
         bio: true,
         avatarUrl: true,
+        defaultFeedScope: true,
+        defaultFeedSort: true,
       },
     });
 
@@ -123,6 +145,8 @@ export async function PATCH(req: NextRequest) {
         resolvedAvatarUrl: updatedUser.avatarUrl
           ? resolveStoredImageUrl(updatedUser.avatarUrl)
           : null,
+        defaultFeedScope: updatedUser.defaultFeedScope.toLowerCase(),
+        defaultFeedSort: updatedUser.defaultFeedSort.toLowerCase(),
       },
     });
   } catch (err) {

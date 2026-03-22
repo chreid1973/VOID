@@ -151,6 +151,18 @@ function firstParam(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function formatFeedPreferenceScope(
+  value: "HOME" | "FOLLOWING" | "POPULAR" | "ALL" | null | undefined
+): FeedScope {
+  return value ? (value.toLowerCase() as FeedScope) : "home";
+}
+
+function formatFeedPreferenceSort(
+  value: "HOT" | "NEW" | "TOP" | "RISING" | null | undefined
+): FeedSort {
+  return value ? (value.toLowerCase() as FeedSort) : "hot";
+}
+
 function parseScope(value: string | undefined): FeedScope {
   return value === "popular" || value === "all" || value === "following"
     ? value
@@ -410,10 +422,34 @@ export default async function FeedPage({
     redirect("/onboarding");
   }
 
-  const initialSelectedCommunity = firstParam(searchParams?.community)?.trim() || null;
-  const initialScope = parseScope(firstParam(searchParams?.scope));
-  const initialSort = parseSort(firstParam(searchParams?.sort));
-  const currentPage = parsePage(firstParam(searchParams?.page));
+  const rawSelectedCommunity = firstParam(searchParams?.community)?.trim() || null;
+  const rawScope = firstParam(searchParams?.scope)?.trim();
+  const rawSort = firstParam(searchParams?.sort)?.trim();
+  const rawPage = firstParam(searchParams?.page)?.trim();
+
+  if (!rawSelectedCommunity && !rawScope && !rawSort && !rawPage && user) {
+    const preferredScope = formatFeedPreferenceScope(user.defaultFeedScope);
+    const preferredSort = formatFeedPreferenceSort(user.defaultFeedSort);
+
+    if (preferredScope !== "home" || preferredSort !== "hot") {
+      const params = new URLSearchParams();
+
+      if (preferredScope !== "home") {
+        params.set("scope", preferredScope);
+      }
+
+      if (preferredSort !== "hot") {
+        params.set("sort", preferredSort);
+      }
+
+      redirect(params.toString() ? `/feed?${params.toString()}` : "/feed");
+    }
+  }
+
+  const initialSelectedCommunity = rawSelectedCommunity;
+  const initialScope = parseScope(rawScope);
+  const initialSort = parseSort(rawSort);
+  const currentPage = parsePage(rawPage);
   const hasPreviousPage = currentPage > 1;
 
   const [memberships, follows] = await Promise.all([

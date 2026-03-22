@@ -115,6 +115,8 @@ export default async function UserProfilePage({
         displayName: true,
         bio: true,
         avatarUrl: true,
+        defaultFeedScope: true,
+        defaultFeedSort: true,
         createdAt: true,
         _count: {
           select: {
@@ -457,6 +459,20 @@ export default async function UserProfilePage({
                     initialBio={user.bio}
                     initialAvatarValue={user.avatarUrl}
                     initialAvatarUrl={avatarUrl}
+                    initialDefaultFeedScope={
+                      user.defaultFeedScope.toLowerCase() as
+                        | "home"
+                        | "following"
+                        | "popular"
+                        | "all"
+                    }
+                    initialDefaultFeedSort={
+                      user.defaultFeedSort.toLowerCase() as
+                        | "hot"
+                        | "new"
+                        | "top"
+                        | "rising"
+                    }
                   />
 
                   <div

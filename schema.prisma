@@ -21,6 +21,8 @@ model User {
   displayNameUpdatedAt DateTime?
   bio          String?
   avatarUrl    String?
+  defaultFeedScope FeedPreferenceScope @default(HOME)
+  defaultFeedSort FeedPreferenceSort @default(HOT)
   isAdmin      Boolean   @default(false)
   karmaPost    Int       @default(0)
   karmaComment Int       @default(0)
@@ -79,6 +81,20 @@ enum Role {
   MEMBER
   MODERATOR
   ADMIN
+}
+
+enum FeedPreferenceScope {
+  HOME
+  FOLLOWING
+  POPULAR
+  ALL
+}
+
+enum FeedPreferenceSort {
+  HOT
+  NEW
+  TOP
+  RISING
 }
 
 model Post {
