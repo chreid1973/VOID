@@ -744,7 +744,8 @@ export default function FeedClient({
 
   function updateFeedParams(
     updates: Record<string, string | null | undefined>,
-    replace = false
+    replace = false,
+    scroll = false
   ) {
     const params = new URLSearchParams(searchParams.toString());
 
@@ -759,11 +760,11 @@ export default function FeedClient({
     const nextUrl = params.toString() ? `${pathname}?${params}` : pathname;
 
     if (replace) {
-      router.replace(nextUrl, { scroll: false });
+      router.replace(nextUrl, { scroll });
       return;
     }
 
-    router.push(nextUrl, { scroll: false });
+    router.push(nextUrl, { scroll });
   }
 
   function handleSelect(selection: string | null) {
@@ -795,7 +796,7 @@ export default function FeedClient({
   }
 
   function handlePageChange(nextPage: number) {
-    updateFeedParams({ page: nextPage > 1 ? String(nextPage) : null });
+    updateFeedParams({ page: nextPage > 1 ? String(nextPage) : null }, false, true);
   }
 
   return (
