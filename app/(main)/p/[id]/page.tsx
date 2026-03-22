@@ -34,6 +34,10 @@ function formatUserVote(value: number | null | undefined): 1 | -1 | null {
   return value === 1 ? 1 : value === -1 ? -1 : null;
 }
 
+function toIsoString(date: Date | string) {
+  return date instanceof Date ? date.toISOString() : new Date(date).toISOString();
+}
+
 function firstParam(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -280,7 +284,7 @@ export default async function PostPage({
       [post.title, post.body].filter(Boolean).join("\n"),
       validMentionSet
     ),
-    createdAt: post.createdAt.toISOString(),
+    createdAt: toIsoString(post.createdAt),
     score: post.score,
     userVote: formatUserVote(postVote?.value),
     isSaved: Boolean(savedPost),
@@ -320,7 +324,7 @@ export default async function PostPage({
         isHidden: comment.isHidden,
         isDeleted: comment.isDeleted,
         isOwner: user?.id === comment.authorId,
-        createdAt: comment.createdAt.toISOString(),
+        createdAt: toIsoString(comment.createdAt),
         author: {
           username: comment.author.username,
           displayName: comment.author.displayName,
