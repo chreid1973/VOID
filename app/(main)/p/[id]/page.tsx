@@ -225,7 +225,7 @@ export async function generateMetadata({
   const description = buildPostShareDescription(post);
   const imageUrl =
     resolvePostShareImageUrl(post.imageKey) ??
-    buildFallbackPostShareImageUrl(post.publicId);
+    buildFallbackPostShareImageUrl();
 
   return {
     title: post.title,

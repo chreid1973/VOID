@@ -75,8 +75,8 @@ export function resolvePostShareImageUrl(imageRef: string | null | undefined) {
   return toAbsoluteSiteUrl(resolveStoredImageUrl(normalizedImageRef));
 }
 
-export function buildFallbackPostShareImageUrl(publicId: string) {
-  return toAbsoluteSiteUrl(`/p/${publicId}/opengraph-image`);
+export function buildFallbackPostShareImageUrl() {
+  return toAbsoluteSiteUrl("/images/opengraph_logo_image.png");
 }
 
 async function loadPostShareMetadataBase(id: string) {
