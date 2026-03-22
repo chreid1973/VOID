@@ -421,6 +421,12 @@ export function FeedTopBar(props: FeedTopBarProps) {
 
 export function FeedSidebar(props: FeedSidebarProps) {
   const activeCommunity = props.mode === "feed" ? props.sel : props.activeCommunity;
+  const footerLinks = [
+    { href: "/privacy-policy", label: "Privacy" },
+    { href: "/terms-of-service", label: "Terms" },
+    { href: "/community-rules", label: "Rules" },
+    { href: "/moderation-philosophy", label: "Moderation" },
+  ] as const;
 
   return (
     <aside className="feed-sidebar">
@@ -585,14 +591,18 @@ export function FeedSidebar(props: FeedSidebarProps) {
         <p style={{ fontSize: 10, color: "#5f5a54", lineHeight: 1.7 }}>
           © 2026 SocialVOID - a better internet
           <br />
-          Privacy · Terms · Help · Careers ·{" "}
-          <Link
-            href="/moderation-philosophy"
-            prefetch={false}
-            style={{ color: "#7b746c", textDecoration: "none" }}
-          >
-            Moderation
-          </Link>
+          {footerLinks.map((link, index) => (
+            <span key={link.href}>
+              {index > 0 ? " · " : null}
+              <Link
+                href={link.href}
+                prefetch={false}
+                style={{ color: "#7b746c", textDecoration: "none" }}
+              >
+                {link.label}
+              </Link>
+            </span>
+          ))}
         </p>
       </div>
     </aside>
