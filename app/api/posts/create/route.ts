@@ -90,13 +90,6 @@ export async function POST(req: Request) {
     );
   }
 
-  if (trimmedImageKey && trimmedUrl) {
-    return NextResponse.json(
-      { error: "Choose either an image or a link for now." },
-      { status: 400 }
-    );
-  }
-
   if (trimmedImageKey) {
     const hasAllowedExtension = /\.(?:jpe?g|png|webp|gif)$/i.test(
       trimmedImageKey
@@ -249,10 +242,10 @@ export async function POST(req: Request) {
   const finalUrl = crosspostSource ? crosspostSource.url : normalizedUrl;
   const finalType = crosspostSource
     ? crosspostSource.type
-    : trimmedImageKey
-      ? PostType.IMAGE
-      : normalizedUrl
-        ? PostType.LINK
+    : normalizedUrl
+      ? PostType.LINK
+      : trimmedImageKey
+        ? PostType.IMAGE
         : PostType.TEXT;
 
   if (!finalTitle) {

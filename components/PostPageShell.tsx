@@ -14,7 +14,7 @@ import RichPostBody from "./RichPostBody";
 import SavePostButton from "./SavePostButton";
 import { useMentionAutocomplete } from "./useMentionAutocomplete";
 import { useResolvedMentions } from "./useResolvedMentions";
-import { getYouTubeEmbedUrl } from "../lib/youtube";
+import { getYouTubeEmbedUrl, getYouTubeThumbnailUrl } from "../lib/youtube";
 
 type CommunityItem = {
   id: string;
@@ -109,6 +109,17 @@ function linkHost(value: string | null | undefined) {
   } catch {
     return value;
   }
+}
+
+function preferredPostImageUrl(
+  imageUrl: string | null | undefined,
+  url: string | null | undefined
+) {
+  if (imageUrl?.startsWith("/api/media/")) {
+    return imageUrl;
+  }
+
+  return getYouTubeThumbnailUrl(url) || imageUrl || null;
 }
 
 function voteDirection(value: 1 | -1 | null | undefined) {
@@ -1813,6 +1824,7 @@ export default function PostPageShell({
   const [postBody, setPostBody] = useState("");
   const [postPending, setPostPending] = useState(false);
   const youtubeEmbedUrl = getYouTubeEmbedUrl(post.url);
+  const fallbackPostImageUrl = preferredPostImageUrl(post.imageUrl, post.url);
 
   useEffect(() => {
     if (!actionNotice) return;
@@ -2136,9 +2148,9 @@ export default function PostPageShell({
                         }}
                       />
                     </div>
-                  ) : post.imageUrl ? (
+                  ) : fallbackPostImageUrl ? (
                     <a
-                      href={post.imageUrl}
+                      href={fallbackPostImageUrl}
                       target="_blank"
                       rel="noreferrer"
                       style={{
@@ -2166,7 +2178,7 @@ export default function PostPageShell({
                           }}
                         >
                           <ExternalAwareImage
-                            src={post.imageUrl}
+                            src={fallbackPostImageUrl}
                             alt={post.title}
                             priority
                             sizes="(max-width: 900px) calc(100vw - 64px), 760px"

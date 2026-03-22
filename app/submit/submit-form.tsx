@@ -220,6 +220,7 @@ export default function SubmitForm({
     }
 
     setImageFile(file);
+    setIncludeLinkPreviewImage(false);
   }
 
   function clearImage() {
@@ -291,11 +292,6 @@ export default function SubmitForm({
     e.preventDefault();
     if (loading) return;
 
-    if (url.trim() && imageFile) {
-      setSubmitError("Choose either one image or one link for now.");
-      return;
-    }
-
     if (!isCrosspost && !title.trim() && !url.trim()) {
       setSubmitError("Add a title or a link.");
       return;
@@ -337,14 +333,14 @@ export default function SubmitForm({
         body: JSON.stringify({
           title,
           body,
-          bodyHtml,
-          url,
-          communityId,
-          imageKey: uploadedImageKey,
-          includeLinkPreviewDescription,
-          includeLinkPreviewImage,
-          crosspostOfPostId: crosspostSource?.id,
-        }),
+        bodyHtml,
+        url,
+        communityId,
+        imageKey: uploadedImageKey,
+        includeLinkPreviewDescription,
+        includeLinkPreviewImage: includeLinkPreviewImage && !uploadedImageKey,
+        crosspostOfPostId: crosspostSource?.id,
+      }),
       });
 
       if (!res.ok) {
@@ -757,7 +753,7 @@ export default function SubmitForm({
                   </label>
                 ) : null}
 
-                {linkPreview.imageUrl ? (
+                {linkPreview.imageUrl && !imageFile ? (
                   <label
                     style={{
                       display: "flex",
@@ -778,11 +774,26 @@ export default function SubmitForm({
                   </label>
                 ) : null}
 
+                {linkPreview.imageUrl && imageFile ? (
+                  <p
+                    style={{
+                      fontSize: 12,
+                      color: "#8b847c",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Your uploaded image will be used on the published post instead of
+                    the detected preview image.
+                  </p>
+                ) : null}
+
                 <p style={{ fontSize: 12, color: "#8b847c", lineHeight: 1.5 }}>
                   {linkPreview.description && includeLinkPreviewDescription
                     ? body.trim()
                       ? "Your typed body will publish first, followed by the detected description."
                       : "The detected description will be saved as the post body."
+                    : imageFile && url.trim()
+                      ? "Your uploaded image will publish with the link post."
                     : linkPreview.imageUrl && includeLinkPreviewImage
                       ? "The detected preview image will be shown on the published post."
                       : "Previewed metadata is optional. Leave the boxes unchecked if you only want the external link plus your own title/body."}
@@ -934,7 +945,7 @@ export default function SubmitForm({
             <p style={{ fontSize: 12, color: "#6f6963", lineHeight: 1.5 }}>
               {imageFile
                 ? `${imageFile.name} · ${formatFileSize(imageFile.size)}`
-                : "Optional: one JPEG, PNG, WebP, or GIF up to 5MB. Link posts cannot also attach an image."}
+                : "Optional: one JPEG, PNG, WebP, or GIF up to 5MB. Link posts can also attach a custom image."}
             </p>
 
             {imageFile ? (

@@ -104,6 +104,17 @@ const linkHost = (value: string | null | undefined) => {
   }
 };
 
+const preferredPreviewImageUrl = (
+  imageUrl: string | null | undefined,
+  url: string | null | undefined
+) => {
+  if (imageUrl?.startsWith("/api/media/")) {
+    return imageUrl;
+  }
+
+  return getYouTubeThumbnailUrl(url) || imageUrl || null;
+};
+
 function Badge({
   cid,
   communities,
@@ -253,7 +264,7 @@ function PostCard({
   onActionNotice: (notice: ActionNoticeState) => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const previewImageUrl = p.imageUrl || getYouTubeThumbnailUrl(p.url);
+  const previewImageUrl = preferredPreviewImageUrl(p.imageUrl, p.url);
 
   return (
     <div

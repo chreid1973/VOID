@@ -1,5 +1,3 @@
-import Image from "next/image";
-
 type ExternalAwareImageProps = {
   src: string;
   alt: string;
@@ -7,29 +5,7 @@ type ExternalAwareImageProps = {
   fit: "cover" | "contain" | "scale-down";
   priority?: boolean;
 };
-
-const EXACT_HOSTS = new Set(["img.clerk.com", "i.ytimg.com"]);
-const SUFFIX_HOSTS = [".r2.dev", ".supabase.co"];
-
-function canUseNextImage(src: string) {
-  if (src.startsWith("/")) {
-    return true;
-  }
-
-  try {
-    const hostname = new URL(src).hostname.toLowerCase();
-
-    if (EXACT_HOSTS.has(hostname)) {
-      return true;
-    }
-
-    return SUFFIX_HOSTS.some(
-      (suffix) => hostname === suffix.slice(1) || hostname.endsWith(suffix)
-    );
-  } catch {
-    return false;
-  }
-}
+import Image from "next/image";
 
 export default function ExternalAwareImage({
   src,
@@ -38,7 +14,7 @@ export default function ExternalAwareImage({
   fit,
   priority = false,
 }: ExternalAwareImageProps) {
-  if (canUseNextImage(src)) {
+  if (src.startsWith("/")) {
     return (
       <Image
         src={src}

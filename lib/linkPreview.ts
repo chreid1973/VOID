@@ -275,9 +275,9 @@ export async function fetchLinkMetadata(urlString: string): Promise<LinkMetadata
         1000
       ),
       imageUrl: resolveExternalAssetUrl(
-        extractMetaContent(html, "og:image") ??
-          extractMetaContent(html, "twitter:image") ??
-          youtubeMetadata?.imageUrl,
+        youtubeMetadata?.imageUrl ??
+          extractMetaContent(html, "og:image") ??
+          extractMetaContent(html, "twitter:image"),
         finalUrl
       ),
     };
