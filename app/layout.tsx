@@ -17,6 +17,23 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://socialvoid.ca"),
   title: "SocialVOID - a better internet",
   description: "The modern discussion platform",
+  manifest: "/images/favicon/site.webmanifest",
+  icons: {
+    icon: [
+      { url: "/images/favicon/favicon.ico" },
+      {
+        url: "/images/favicon/favicon-16x16.png",
+        sizes: "16x16",
+        type: "image/png",
+      },
+      {
+        url: "/images/favicon/favicon-32x32.png",
+        sizes: "32x32",
+        type: "image/png",
+      },
+    ],
+    apple: "/images/favicon/apple-touch-icon.png",
+  },
   openGraph: {
     type: "website",
     url: "https://socialvoid.ca",
