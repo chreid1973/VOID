@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
@@ -2157,18 +2158,24 @@ export default function PostPageShell({
                           overflow: "hidden",
                         }}
                       >
-                        <img
-                          src={post.imageUrl}
-                          alt={post.title}
+                        <div
                           style={{
-                            display: "block",
-                            maxWidth: "100%",
-                            maxHeight: 640,
-                            width: "auto",
-                            height: "auto",
-                            objectFit: "contain",
+                            position: "relative",
+                            width: "100%",
+                            height: "min(70vh, 640px)",
                           }}
-                        />
+                        >
+                          <Image
+                            src={post.imageUrl}
+                            alt={post.title}
+                            fill
+                            priority
+                            sizes="(max-width: 900px) calc(100vw - 64px), 760px"
+                            style={{
+                              objectFit: "scale-down",
+                            }}
+                          />
+                        </div>
                       </div>
                     </a>
                   ) : null}

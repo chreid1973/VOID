@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -395,20 +396,27 @@ function PostCard({
                     }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <img
-                      src={previewImageUrl}
-                      alt={p.title}
-                      loading="lazy"
+                    <div
                       style={{
+                        position: "relative",
                         width: "100%",
-                        maxHeight: 320,
-                        objectFit: "cover",
-                        display: "block",
+                        height: "clamp(180px, 32vw, 320px)",
                         borderRadius: 12,
                         border: "1px solid #1f1f1f",
                         background: "#111010",
+                        overflow: "hidden",
                       }}
-                    />
+                    >
+                      <Image
+                        src={previewImageUrl}
+                        alt={p.title}
+                        fill
+                        sizes="(max-width: 768px) calc(100vw - 72px), 640px"
+                        style={{
+                          objectFit: "cover",
+                        }}
+                      />
+                    </div>
                   </a>
                 ) : null}
               </div>

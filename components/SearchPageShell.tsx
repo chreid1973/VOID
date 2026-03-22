@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
 import type { SearchResults } from "../lib/search-types";
@@ -215,9 +216,12 @@ export default function SearchPageShell({
                         }}
                       >
                         {user.avatarUrl ? (
-                          <img
+                          <Image
                             src={user.avatarUrl}
                             alt={user.displayName || user.username}
+                            width={44}
+                            height={44}
+                            sizes="44px"
                             style={{
                               width: 44,
                               height: 44,
