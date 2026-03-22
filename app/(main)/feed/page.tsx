@@ -1,21 +1,129 @@
 import { Prisma } from "@prisma/client";
+import { unstable_cache } from "next/cache";
 import { redirect } from "next/navigation";
 import FeedClient from "../../../components/FeedClient";
 import { getAuthState } from "../../../auth";
 import { loadCommunityNavigationItems } from "../../../lib/communityNav";
-import { prisma } from "../../../lib/prisma";
+import {
+  filterMentionUsernames,
+  loadExistingMentionUsernames,
+} from "../../../lib/mentions";
 import { compareRankedPosts, type FeedSort } from "../../../lib/postRanking";
-import { resolveStoredImageUrl } from "../../../r2";
+import { prisma } from "../../../lib/prisma";
 import { loadTrendingRailPosts } from "../../../lib/trendingRail";
-import { filterMentionUsernames, loadExistingMentionUsernames } from "../../../lib/mentions";
+import { resolveStoredImageUrl } from "../../../r2";
 
 const PAGE_SIZE = 20;
 const RANKING_CANDIDATE_LIMIT = 250;
+const FEED_CONTENT_TAG = "feed-content";
 
 type FeedScope = "home" | "following" | "popular" | "all";
 
-function timeAgo(date: Date) {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+type FeedPageSearchParams = {
+  community?: string | string[];
+  scope?: string | string[];
+  sort?: string | string[];
+  page?: string | string[];
+};
+
+type FeedWhereOptions = {
+  selectedCommunity: string | null;
+  scope: FeedScope;
+  joinedCommunityIds?: string[];
+  followedAuthorIds?: string[];
+  isPersonalizedHome?: boolean;
+};
+
+type FeedPageBaseOptions = {
+  selectedCommunity: string | null;
+  scope: FeedScope;
+  sort: FeedSort;
+  currentPage: number;
+  joinedCommunityIds?: string[];
+  followedAuthorIds?: string[];
+  isPersonalizedHome?: boolean;
+};
+
+type FeedBasePost = {
+  id: string;
+  publicId: string;
+  community: string;
+  title: string;
+  body: string;
+  url: string | null;
+  imageUrl: string | null;
+  authorName: string;
+  authorUsername: string;
+  votes: number;
+  userVote: 1 | -1 | null;
+  comments: number;
+  mentions: string[];
+  time: string;
+  flair?: string | null;
+  flairColor?: string | null;
+  isSaved: boolean;
+  crosspostSource: {
+    id: string;
+    publicId: string;
+    authorName: string;
+    authorUsername: string;
+    community: string;
+    communityDisplayName: string;
+    communityColor: string;
+    communityIcon: string;
+  } | null;
+};
+
+type FeedPageBase = {
+  posts: FeedBasePost[];
+  hasNextPage: boolean;
+};
+
+const postInclude = {
+  author: {
+    select: {
+      username: true,
+      displayName: true,
+    },
+  },
+  community: {
+    select: {
+      id: true,
+      name: true,
+      displayName: true,
+      icon: true,
+      color: true,
+    },
+  },
+  crosspostOf: {
+    select: {
+      id: true,
+      publicId: true,
+      author: {
+        select: {
+          username: true,
+          displayName: true,
+        },
+      },
+      community: {
+        select: {
+          name: true,
+          displayName: true,
+          color: true,
+          icon: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.PostInclude;
+
+type IncludedFeedPost = Prisma.PostGetPayload<{
+  include: typeof postInclude;
+}>;
+
+function timeAgo(date: Date | string) {
+  const timestamp = date instanceof Date ? date.getTime() : new Date(date).getTime();
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
 
   if (seconds < 60) return "just now";
 
@@ -63,80 +171,29 @@ function parsePage(value: string | undefined) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
-export default async function FeedPage({
-  searchParams,
-}: {
-  searchParams?: {
-    community?: string | string[];
-    scope?: string | string[];
-    sort?: string | string[];
-    page?: string | string[];
-  };
-}) {
-  const { userId, user } = await getAuthState();
+function buildFeedWhere({
+  selectedCommunity,
+  scope,
+  joinedCommunityIds = [],
+  followedAuthorIds = [],
+  isPersonalizedHome = false,
+}: FeedWhereOptions) {
+  const whereClauses: Prisma.PostWhereInput[] = [
+    {
+      isHidden: false,
+    },
+  ];
 
-  if (userId && !user) {
-    redirect("/onboarding");
-  }
-
-  const initialSelectedCommunity = firstParam(searchParams?.community)?.trim() || null;
-  const initialScope = parseScope(firstParam(searchParams?.scope));
-  const initialSort = parseSort(firstParam(searchParams?.sort));
-  const currentPage = parsePage(firstParam(searchParams?.page));
-
-  const [memberships, follows, communities, trendingRailPosts, unreadNotificationCount] = await Promise.all([
-    user
-      ? prisma.communityMember.findMany({
-          where: { userId: user.id },
-          select: {
-            communityId: true,
-          },
-        })
-      : Promise.resolve([]),
-    user
-      ? prisma.userFollow.findMany({
-          where: { followerId: user.id },
-          select: {
-            followingId: true,
-          },
-        })
-      : Promise.resolve([]),
-    loadCommunityNavigationItems(),
-    loadTrendingRailPosts(5),
-    user
-      ? prisma.notification.count({
-          where: {
-            userId: user.id,
-            readAt: null,
-          },
-        })
-      : Promise.resolve(0),
-  ]);
-
-  const joinedCommunityIds = memberships.map((membership) => membership.communityId);
-  const joinedCommunityIdSet = new Set(joinedCommunityIds);
-  const followedAuthorIds = follows.map((follow) => follow.followingId);
-  const isPersonalizedHome =
-    !initialSelectedCommunity &&
-    initialScope === "home" &&
-    joinedCommunityIds.length > 0;
-
-  const whereClauses: Prisma.PostWhereInput[] = [];
-
-  whereClauses.push({
-    isHidden: false,
-  });
-
-  if (initialSelectedCommunity) {
+  if (selectedCommunity) {
     whereClauses.push({
       community: {
         name: {
-          equals: initialSelectedCommunity,
+          equals: selectedCommunity,
           mode: "insensitive",
         },
       },
     });
-  } else if (initialScope === "following") {
+  } else if (scope === "following") {
     whereClauses.push({
       authorId: {
         in: followedAuthorIds,
@@ -148,71 +205,31 @@ export default async function FeedPage({
         in: joinedCommunityIds,
       },
     });
-  } else if (initialScope === "popular") {
+  } else if (scope === "popular") {
     whereClauses.push({
       OR: [{ score: { gt: 0 } }, { commentCount: { gt: 0 } }],
     });
   }
 
-  const where =
-    whereClauses.length > 0
-      ? ({
-          AND: whereClauses,
-        } satisfies Prisma.PostWhereInput)
-      : undefined;
+  return {
+    AND: whereClauses,
+  } satisfies Prisma.PostWhereInput;
+}
 
+async function loadVisibleFeedPosts(
+  where: Prisma.PostWhereInput,
+  sort: FeedSort,
+  currentPage: number
+) {
   const pageOffset = (currentPage - 1) * PAGE_SIZE;
-  const hasPreviousPage = currentPage > 1;
-  const postInclude = {
-    author: {
-      select: {
-        username: true,
-        displayName: true,
-      },
-    },
-    community: {
-      select: {
-        id: true,
-        name: true,
-        displayName: true,
-        icon: true,
-        color: true,
-      },
-    },
-    crosspostOf: {
-      select: {
-        id: true,
-        publicId: true,
-        author: {
-          select: {
-            username: true,
-            displayName: true,
-          },
-        },
-        community: {
-          select: {
-            name: true,
-            displayName: true,
-            color: true,
-            icon: true,
-          },
-        },
-      },
-    },
-  } satisfies Prisma.PostInclude;
-
-  let visiblePosts: Array<
-    Prisma.PostGetPayload<{
-      include: typeof postInclude;
-    }>
-  > = [];
+  let visiblePosts: IncludedFeedPost[] = [];
   let hasNextPage = false;
 
-  if (initialSort === "new" || initialSort === "top") {
+  if (sort === "new" || sort === "top") {
     const orderedPosts = await prisma.post.findMany({
       where,
       orderBy:
-        initialSort === "new"
+        sort === "new"
           ? [{ createdAt: "desc" }, { score: "desc" }]
           : [{ score: "desc" }, { createdAt: "desc" }],
       skip: pageOffset,
@@ -246,7 +263,7 @@ export default async function FeedPage({
       createdAt: post.createdAt,
     }));
 
-    rankedPosts.sort((a, b) => compareRankedPosts(a, b, initialSort, rankingNowMs));
+    rankedPosts.sort((a, b) => compareRankedPosts(a, b, sort, rankingNowMs));
 
     const visiblePostIds = rankedPosts
       .slice(pageOffset, pageOffset + PAGE_SIZE)
@@ -270,20 +287,203 @@ export default async function FeedPage({
 
     visiblePosts = visiblePostIds
       .map((postId) => visiblePostMap.get(postId))
-      .filter(
-        (
-          post
-        ): post is (typeof visiblePostsRaw)[number] => Boolean(post)
-      );
+      .filter((post): post is IncludedFeedPost => Boolean(post));
   }
 
+  return {
+    visiblePosts,
+    hasNextPage,
+  };
+}
+
+async function loadFeedPageBase({
+  selectedCommunity,
+  scope,
+  sort,
+  currentPage,
+  joinedCommunityIds = [],
+  followedAuthorIds = [],
+  isPersonalizedHome = false,
+}: FeedPageBaseOptions): Promise<FeedPageBase> {
+  const where = buildFeedWhere({
+    selectedCommunity,
+    scope,
+    joinedCommunityIds,
+    followedAuthorIds,
+    isPersonalizedHome,
+  });
+  const { visiblePosts, hasNextPage } = await loadVisibleFeedPosts(
+    where,
+    sort,
+    currentPage
+  );
+  const validMentionUsernames = await loadExistingMentionUsernames(
+    visiblePosts.flatMap((post) => [post.title, post.body])
+  );
+  const validMentionSet = new Set(validMentionUsernames);
+
+  return {
+    hasNextPage,
+    posts: visiblePosts.map((post) => ({
+      id: post.id,
+      publicId: post.publicId,
+      community: post.community.name,
+      title: post.title,
+      body: post.body ?? "",
+      url: post.url,
+      imageUrl: post.imageKey ? resolveStoredImageUrl(post.imageKey) : null,
+      authorName: post.author.displayName || post.author.username,
+      authorUsername: post.author.username,
+      votes: post.score ?? 0,
+      userVote: null,
+      comments: post.commentCount ?? 0,
+      mentions: filterMentionUsernames(
+        [post.title, post.body].filter(Boolean).join("\n"),
+        validMentionSet
+      ),
+      time: timeAgo(post.createdAt),
+      flair: post.flair,
+      flairColor: post.flairColor,
+      isSaved: false,
+      crosspostSource: post.crosspostOf
+        ? {
+            id: post.crosspostOf.id,
+            publicId: post.crosspostOf.publicId,
+            authorName:
+              post.crosspostOf.author.displayName ||
+              post.crosspostOf.author.username,
+            authorUsername: post.crosspostOf.author.username,
+            community: post.crosspostOf.community.name,
+            communityDisplayName: post.crosspostOf.community.displayName,
+            communityColor: post.crosspostOf.community.color,
+            communityIcon: post.crosspostOf.community.icon,
+          }
+        : null,
+    })),
+  };
+}
+
+const loadCachedPublicFeedPageBase = unstable_cache(
+  async (
+    selectedCommunity: string | null,
+    scope: FeedScope,
+    sort: FeedSort,
+    currentPage: number
+  ) =>
+    loadFeedPageBase({
+      selectedCommunity,
+      scope,
+      sort,
+      currentPage,
+    }),
+  [FEED_CONTENT_TAG],
+  {
+    revalidate: 20,
+    tags: [FEED_CONTENT_TAG],
+  }
+);
+
+function shouldUseCachedPublicFeedBase(
+  selectedCommunity: string | null,
+  scope: FeedScope,
+  isPersonalizedHome: boolean
+) {
+  if (selectedCommunity) {
+    return true;
+  }
+
+  if (scope === "following") {
+    return false;
+  }
+
+  return !isPersonalizedHome;
+}
+
+export default async function FeedPage({
+  searchParams,
+}: {
+  searchParams?: FeedPageSearchParams;
+}) {
+  const { userId, user } = await getAuthState();
+
+  if (userId && !user) {
+    redirect("/onboarding");
+  }
+
+  const initialSelectedCommunity = firstParam(searchParams?.community)?.trim() || null;
+  const initialScope = parseScope(firstParam(searchParams?.scope));
+  const initialSort = parseSort(firstParam(searchParams?.sort));
+  const currentPage = parsePage(firstParam(searchParams?.page));
+  const hasPreviousPage = currentPage > 1;
+
+  const [memberships, follows] = await Promise.all([
+    user
+      ? prisma.communityMember.findMany({
+          where: { userId: user.id },
+          select: {
+            communityId: true,
+          },
+        })
+      : Promise.resolve([]),
+    user
+      ? prisma.userFollow.findMany({
+          where: { followerId: user.id },
+          select: {
+            followingId: true,
+          },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const joinedCommunityIds = memberships.map((membership) => membership.communityId);
+  const joinedCommunityIdSet = new Set(joinedCommunityIds);
+  const followedAuthorIds = follows.map((follow) => follow.followingId);
+  const isPersonalizedHome =
+    !initialSelectedCommunity &&
+    initialScope === "home" &&
+    joinedCommunityIds.length > 0;
+
+  const [feedBase, communities, trendingRailPosts, unreadNotificationCount] =
+    await Promise.all([
+      shouldUseCachedPublicFeedBase(
+        initialSelectedCommunity,
+        initialScope,
+        isPersonalizedHome
+      )
+        ? loadCachedPublicFeedPageBase(
+            initialSelectedCommunity,
+            initialScope,
+            initialSort,
+            currentPage
+          )
+        : loadFeedPageBase({
+            selectedCommunity: initialSelectedCommunity,
+            scope: initialScope,
+            sort: initialSort,
+            currentPage,
+            joinedCommunityIds,
+            followedAuthorIds,
+            isPersonalizedHome,
+          }),
+      loadCommunityNavigationItems(),
+      loadTrendingRailPosts(5),
+      user
+        ? prisma.notification.count({
+            where: {
+              userId: user.id,
+              readAt: null,
+            },
+          })
+        : Promise.resolve(0),
+    ]);
+
   const [postVotes, savedPosts] =
-    user && visiblePosts.length > 0
+    user && feedBase.posts.length > 0
       ? await Promise.all([
           prisma.vote.findMany({
             where: {
               userId: user.id,
-              postId: { in: visiblePosts.map((post) => post.id) },
+              postId: { in: feedBase.posts.map((post) => post.id) },
             },
             select: {
               postId: true,
@@ -293,7 +493,7 @@ export default async function FeedPage({
           prisma.savedPost.findMany({
             where: {
               userId: user.id,
-              postId: { in: visiblePosts.map((post) => post.id) },
+              postId: { in: feedBase.posts.map((post) => post.id) },
             },
             select: {
               postId: true,
@@ -305,45 +505,11 @@ export default async function FeedPage({
     postVotes.map((vote) => [vote.postId as string, vote.value])
   );
   const savedPostIdSet = new Set(savedPosts.map((savedPost) => savedPost.postId));
-  const validMentionUsernames = await loadExistingMentionUsernames(
-    visiblePosts.flatMap((post) => [post.title, post.body])
-  );
-  const validMentionSet = new Set(validMentionUsernames);
 
-  const formattedPosts = visiblePosts.map((post) => ({
-    id: post.id,
-    publicId: post.publicId,
-    community: post.community.name,
-    title: post.title,
-    body: post.body ?? "",
-    url: post.url,
-    imageUrl: post.imageKey ? resolveStoredImageUrl(post.imageKey) : null,
-    authorName: post.author.displayName || post.author.username,
-    authorUsername: post.author.username,
-    votes: post.score ?? 0,
-    comments: post.commentCount ?? 0,
-    mentions: filterMentionUsernames(
-      [post.title, post.body].filter(Boolean).join("\n"),
-      validMentionSet
-    ),
-    time: timeAgo(post.createdAt),
-    flair: post.flair,
-    flairColor: post.flairColor,
+  const formattedPosts = feedBase.posts.map((post) => ({
+    ...post,
     userVote: formatUserVote(postVoteMap.get(post.id)),
     isSaved: savedPostIdSet.has(post.id),
-    crosspostSource: post.crosspostOf
-      ? {
-          id: post.crosspostOf.id,
-          publicId: post.crosspostOf.publicId,
-          authorName:
-            post.crosspostOf.author.displayName || post.crosspostOf.author.username,
-          authorUsername: post.crosspostOf.author.username,
-          community: post.crosspostOf.community.name,
-          communityDisplayName: post.crosspostOf.community.displayName,
-          communityColor: post.crosspostOf.community.color,
-          communityIcon: post.crosspostOf.community.icon,
-        }
-      : null,
   }));
   const formattedRailPosts = trendingRailPosts.map((post) => ({
     id: post.id,
@@ -372,7 +538,7 @@ export default async function FeedPage({
       initialScope={initialScope}
       initialSort={initialSort}
       currentPage={currentPage}
-      hasNextPage={hasNextPage}
+      hasNextPage={feedBase.hasNextPage}
       hasPreviousPage={hasPreviousPage}
       isPersonalizedHome={isPersonalizedHome}
       followedAuthorCount={followedAuthorIds.length}

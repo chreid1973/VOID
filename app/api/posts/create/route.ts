@@ -329,6 +329,7 @@ export async function POST(req: Request) {
   }
 
   revalidateTag("community-navigation");
+  revalidateTag("feed-content");
 
   return NextResponse.json({ ok: true, postId: post.id, publicId: post.publicId });
 }

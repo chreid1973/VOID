@@ -1,4 +1,7 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "./prisma";
+
+export const MENTION_USERNAMES_TAG = "mention-usernames";
 
 export function extractMentionUsernames(text: string | null | undefined) {
   if (!text) return [] as string[];
@@ -27,27 +30,55 @@ export function filterMentionUsernames(
   );
 }
 
-export async function loadExistingMentionUsernames(
-  texts: Array<string | null | undefined>
-) {
-  const usernames = Array.from(
-    new Set(texts.flatMap((text) => extractMentionUsernames(text)))
-  );
+function normalizeMentionUsernames(usernames: string[]) {
+  return Array.from(
+    new Set(
+      usernames
+        .map((username) => username.trim().toLowerCase())
+        .filter((username) => /^[a-z0-9_]{3,24}$/.test(username))
+    )
+  ).sort();
+}
 
-  if (usernames.length === 0) {
+const loadCachedExistingMentionUsernames = unstable_cache(
+  async (_cacheKey: string, usernames: string[]) => {
+    const users = await prisma.user.findMany({
+      where: {
+        username: {
+          in: usernames,
+        },
+      },
+      select: {
+        username: true,
+      },
+    });
+
+    return users.map((user) => user.username.toLowerCase());
+  },
+  [MENTION_USERNAMES_TAG],
+  {
+    revalidate: 300,
+    tags: [MENTION_USERNAMES_TAG],
+  }
+);
+
+export async function resolveExistingMentionUsernames(usernames: string[]) {
+  const normalizedUsernames = normalizeMentionUsernames(usernames);
+
+  if (normalizedUsernames.length === 0) {
     return [] as string[];
   }
 
-  const users = await prisma.user.findMany({
-    where: {
-      username: {
-        in: usernames,
-      },
-    },
-    select: {
-      username: true,
-    },
-  });
+  return loadCachedExistingMentionUsernames(
+    normalizedUsernames.join(","),
+    normalizedUsernames
+  );
+}
 
-  return users.map((user) => user.username);
+export async function loadExistingMentionUsernames(
+  texts: Array<string | null | undefined>
+) {
+  return resolveExistingMentionUsernames(
+    texts.flatMap((text) => extractMentionUsernames(text))
+  );
 }

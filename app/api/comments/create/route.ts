@@ -110,6 +110,7 @@ export async function POST(req: Request) {
   });
 
   revalidateTag("post-page-content");
+  revalidateTag("feed-content");
 
   return NextResponse.json({ ok: true });
 }

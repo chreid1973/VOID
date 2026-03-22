@@ -122,6 +122,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     }
 
     revalidateTag("post-page-content");
+    revalidateTag("feed-content");
 
     return NextResponse.json({ ok: true });
   } catch (err) {

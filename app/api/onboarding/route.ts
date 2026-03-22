@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { revalidateTag } from "next/cache";
 import { z } from "zod";
 import { prisma } from "../../../lib/prisma";
+import { MENTION_USERNAMES_TAG } from "../../../lib/mentions";
 
 const RESERVED_USERNAMES = new Set([
   "admin",
@@ -94,6 +96,8 @@ export async function POST(req: Request) {
         displayName: true,
       },
     });
+
+    revalidateTag(MENTION_USERNAMES_TAG);
 
     return NextResponse.json({
       ok: true,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { resolveExistingMentionUsernames } from "@/lib/mentions";
 
 const schema = z.object({
   usernames: z
@@ -23,18 +23,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ mentions: [] });
     }
 
-    const users = await prisma.user.findMany({
-      where: {
-        username: {
-          in: normalizedUsernames,
-        },
-      },
-      select: {
-        username: true,
-      },
-    });
-
-    const mentionSet = new Set(users.map((user) => user.username.toLowerCase()));
+    const mentionSet = new Set(
+      await resolveExistingMentionUsernames(normalizedUsernames)
+    );
 
     return NextResponse.json({
       mentions: normalizedUsernames.filter((username) => mentionSet.has(username)),
