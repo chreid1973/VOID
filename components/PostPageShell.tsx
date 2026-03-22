@@ -1,12 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import "../app/(main)/feed/feed.css";
 import { ActionNotice, type ActionNoticeState } from "./ActionNotice";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
+import ExternalAwareImage from "./ExternalAwareImage";
 import MentionAutocompleteMenu from "./MentionAutocompleteMenu";
 import MentionText from "./MentionText";
 import ReportAction from "./ReportAction";
@@ -2165,15 +2165,12 @@ export default function PostPageShell({
                             height: "min(70vh, 640px)",
                           }}
                         >
-                          <Image
+                          <ExternalAwareImage
                             src={post.imageUrl}
                             alt={post.title}
-                            fill
                             priority
                             sizes="(max-width: 900px) calc(100vw - 64px), 760px"
-                            style={{
-                              objectFit: "scale-down",
-                            }}
+                            fit="scale-down"
                           />
                         </div>
                       </div>

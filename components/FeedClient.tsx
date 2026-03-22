@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -10,6 +9,7 @@ import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
 import MentionText from "./MentionText";
 import ReportAction from "./ReportAction";
 import SavePostButton from "./SavePostButton";
+import ExternalAwareImage from "./ExternalAwareImage";
 import { getYouTubeThumbnailUrl } from "../lib/youtube";
 
 type FeedPost = {
@@ -407,14 +407,11 @@ function PostCard({
                         overflow: "hidden",
                       }}
                     >
-                      <Image
+                      <ExternalAwareImage
                         src={previewImageUrl}
                         alt={p.title}
-                        fill
                         sizes="(max-width: 768px) calc(100vw - 72px), 640px"
-                        style={{
-                          objectFit: "cover",
-                        }}
+                        fit="cover"
                       />
                     </div>
                   </a>
