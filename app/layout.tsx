@@ -14,8 +14,28 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://socialvoid.ca"),
   title: "SocialVOID - a better internet",
   description: "The modern discussion platform",
+  openGraph: {
+    type: "website",
+    url: "https://socialvoid.ca",
+    siteName: "SocialVOID",
+    title: "SocialVOID - a better internet",
+    description: "The modern discussion platform",
+    images: [
+      {
+        url: "/images/socialvoid_og.png",
+        alt: "SocialVOID",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SocialVOID - a better internet",
+    description: "The modern discussion platform",
+    images: ["/images/socialvoid_og.png"],
+  },
   robots: {
     index: false,
     follow: false,
