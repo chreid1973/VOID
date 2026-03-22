@@ -27,11 +27,11 @@ export const termsSections: PolicySection[] = [
   {
     title: "4. Eligibility to Use SocialVOID",
     paragraphs: [
-      "You must be at least 13 years old to use SocialVOID.",
+      "You must be at least 16 years old to use SocialVOID.",
       "You may not use SocialVOID if any of the following apply:",
     ],
     bullets: [
-      "You are under 13 years old.",
+      "You are under 16 years old.",
       "You have been suspended or banned from SocialVOID and have not received written permission from us to return.",
       "Your use of the platform would violate applicable law.",
       "Creating a new account to get around a suspension or ban is itself a violation of these Terms and may result in permanent removal.",
@@ -286,8 +286,8 @@ export const privacySections: PolicySection[] = [
   {
     title: "12. Children's Privacy",
     paragraphs: [
-      "SocialVOID is not intended for children under 13, and we do not knowingly collect personal information from children under 13. If we learn that we have done so, we will take reasonable steps to delete that information.",
-      "If you believe a child under 13 has created an account, contact us at support@socialvoid.ca.",
+      "SocialVOID is not intended for children under 16, and we do not knowingly collect personal information from children under 16. If we learn that we have done so, we will take reasonable steps to delete that information.",
+      "If you believe a child under 16 has created an account, contact us at support@socialvoid.ca.",
     ],
   },
   {
