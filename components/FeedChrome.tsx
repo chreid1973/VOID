@@ -63,6 +63,33 @@ type FeedSidebarProps =
       communities: CommunityNavItem[];
     };
 
+const COMMUNITY_GROUPS = [
+  {
+    label: "Entertainment",
+    communityNames: ["memes", "movies-tv", "gaming", "music"],
+  },
+  {
+    label: "Tech",
+    communityNames: ["tech", "ai", "programming"],
+  },
+  {
+    label: "Ideas",
+    communityNames: ["questions", "science", "space", "philosophy"],
+  },
+  {
+    label: "World",
+    communityNames: ["news", "history", "travel"],
+  },
+  {
+    label: "Living",
+    communityNames: ["sports", "food"],
+  },
+  {
+    label: "Culture",
+    communityNames: ["design", "art", "books"],
+  },
+] as const;
+
 function norm(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
 }
@@ -427,6 +454,117 @@ export function FeedSidebar(props: FeedSidebarProps) {
     { href: "/community-rules", label: "Rules" },
     { href: "/moderation-philosophy", label: "Moderation" },
   ] as const;
+  const communityMap = new Map(
+    props.communities.map((community) => [norm(community.name), community])
+  );
+  const groupedCommunityNames = new Set(
+    COMMUNITY_GROUPS.flatMap((group) => group.communityNames.map(norm))
+  );
+  const communityGroups = COMMUNITY_GROUPS.map((group) => ({
+    label: group.label,
+    communities: group.communityNames
+      .map((name) => communityMap.get(norm(name)))
+      .filter((community): community is CommunityNavItem => Boolean(community)),
+  })).filter((group) => group.communities.length > 0);
+  const otherCommunities = props.communities
+    .filter((community) => !groupedCommunityNames.has(norm(community.name)))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
+  const allCommunityGroups =
+    otherCommunities.length > 0
+      ? [...communityGroups, { label: "Other", communities: otherCommunities }]
+      : communityGroups;
+
+  function renderCommunityItem(c: CommunityNavItem) {
+    if (props.mode === "feed") {
+      return (
+        <div
+          key={c.id}
+          className={`com-item ${norm(props.sel) === norm(c.name) ? "active" : ""}`}
+          onClick={() => props.onSelect(c.name)}
+          style={
+            norm(props.sel) === norm(c.name)
+              ? { color: c.color, background: c.color + "12", cursor: "pointer" }
+              : { cursor: "pointer" }
+          }
+        >
+          <span
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: 6,
+              background: c.color + "1c",
+              color: c.color,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 11,
+              flexShrink: 0,
+            }}
+          >
+            {c.icon}
+          </span>
+          <span style={{ flex: 1 }}>{c.displayName}</span>
+          <span
+            style={{
+              fontSize: 10.5,
+              color: "#625c55",
+              fontWeight: 600,
+              letterSpacing: ".01em",
+            }}
+          >
+            {c.postCount}p · {c.memberCount}m
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <Link
+        key={c.id}
+        href={`/feed?community=${encodeURIComponent(c.name)}`}
+        prefetch={false}
+        className={`com-item ${norm(activeCommunity) === norm(c.name) ? "active" : ""}`}
+        style={
+          norm(activeCommunity) === norm(c.name)
+            ? {
+                color: c.color,
+                background: c.color + "12",
+                cursor: "pointer",
+                textDecoration: "none",
+              }
+            : { cursor: "pointer", textDecoration: "none" }
+        }
+      >
+        <span
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: 6,
+            background: c.color + "1c",
+            color: c.color,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 11,
+            flexShrink: 0,
+          }}
+        >
+          {c.icon}
+        </span>
+        <span style={{ flex: 1 }}>{c.displayName}</span>
+        <span
+          style={{
+            fontSize: 10.5,
+            color: "#625c55",
+            fontWeight: 600,
+            letterSpacing: ".01em",
+          }}
+        >
+          {c.postCount}p · {c.memberCount}m
+        </span>
+      </Link>
+    );
+  }
 
   return (
     <aside className="feed-sidebar">
@@ -495,97 +633,14 @@ export function FeedSidebar(props: FeedSidebarProps) {
         </>
       )}
 
-      <div className="sect-label">Communities</div>
-
-      {props.communities.map((c) =>
-        props.mode === "feed" ? (
-          <div
-            key={c.id}
-            className={`com-item ${norm(props.sel) === norm(c.name) ? "active" : ""}`}
-            onClick={() => props.onSelect(c.name)}
-            style={
-              norm(props.sel) === norm(c.name)
-                ? { color: c.color, background: c.color + "12", cursor: "pointer" }
-                : { cursor: "pointer" }
-            }
-          >
-            <span
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: 6,
-                background: c.color + "1c",
-                color: c.color,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 11,
-                flexShrink: 0,
-              }}
-            >
-              {c.icon}
-            </span>
-            <span style={{ flex: 1 }}>{c.displayName}</span>
-            <span
-              style={{
-                fontSize: 10.5,
-                color: "#625c55",
-                fontWeight: 600,
-                letterSpacing: ".01em",
-              }}
-            >
-              {c.postCount}p · {c.memberCount}m
-            </span>
+      {allCommunityGroups.map((group, index) => (
+        <div key={group.label} style={{ marginTop: index === 0 ? 14 : 16 }}>
+          <div className="sect-label" style={{ marginBottom: 6 }}>
+            {group.label}
           </div>
-        ) : (
-          <Link
-            key={c.id}
-            href={`/feed?community=${encodeURIComponent(c.name)}`}
-            prefetch={false}
-            className={`com-item ${
-              norm(activeCommunity) === norm(c.name) ? "active" : ""
-            }`}
-            style={
-              norm(activeCommunity) === norm(c.name)
-                ? {
-                    color: c.color,
-                    background: c.color + "12",
-                    cursor: "pointer",
-                    textDecoration: "none",
-                  }
-                : { cursor: "pointer", textDecoration: "none" }
-            }
-          >
-            <span
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: 6,
-                background: c.color + "1c",
-                color: c.color,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 11,
-                flexShrink: 0,
-              }}
-            >
-              {c.icon}
-            </span>
-            <span style={{ flex: 1 }}>{c.displayName}</span>
-            <span
-              style={{
-                fontSize: 10.5,
-                color: "#625c55",
-                fontWeight: 600,
-                letterSpacing: ".01em",
-              }}
-            >
-              {c.postCount}p · {c.memberCount}m
-            </span>
-          </Link>
-        )
-      )}
+          {group.communities.map((community) => renderCommunityItem(community))}
+        </div>
+      ))}
 
       <div style={{ marginTop: 28, padding: "0 10px" }}>
         <p style={{ fontSize: 10, color: "#5f5a54", lineHeight: 1.7 }}>
