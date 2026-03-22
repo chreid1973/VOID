@@ -7,6 +7,7 @@ import MentionAutocompleteMenu from "@/components/MentionAutocompleteMenu";
 import MentionText from "@/components/MentionText";
 import { useMentionAutocomplete } from "@/components/useMentionAutocomplete";
 import { useResolvedMentions } from "@/components/useResolvedMentions";
+import { normalizePreviewImageUrl } from "@/lib/previewImages";
 
 type Community = {
   id: string;
@@ -121,6 +122,9 @@ export default function SubmitForm({
     "idle"
   );
   const loading = phase !== "idle";
+  const normalizedLinkPreviewImageUrl = normalizePreviewImageUrl(
+    linkPreview?.imageUrl
+  );
   const {
     mentionedUsernames,
     resolvedMentions,
@@ -672,7 +676,7 @@ export default function SubmitForm({
                   </span>
                 </div>
 
-                {linkPreview.imageUrl ? (
+                {normalizedLinkPreviewImageUrl ? (
                   <div
                     style={{
                       borderRadius: 10,
@@ -682,7 +686,7 @@ export default function SubmitForm({
                     }}
                   >
                     <img
-                      src={linkPreview.imageUrl}
+                      src={normalizedLinkPreviewImageUrl}
                       alt={title.trim() || linkPreview.resolvedTitle}
                       style={{
                         width: "100%",
@@ -753,7 +757,7 @@ export default function SubmitForm({
                   </label>
                 ) : null}
 
-                {linkPreview.imageUrl && !imageFile ? (
+                {normalizedLinkPreviewImageUrl && !imageFile ? (
                   <label
                     style={{
                       display: "flex",
@@ -774,7 +778,7 @@ export default function SubmitForm({
                   </label>
                 ) : null}
 
-                {linkPreview.imageUrl && imageFile ? (
+                {normalizedLinkPreviewImageUrl && imageFile ? (
                   <p
                     style={{
                       fontSize: 12,
@@ -794,7 +798,7 @@ export default function SubmitForm({
                       : "The detected description will be saved as the post body."
                     : imageFile && url.trim()
                       ? "Your uploaded image will publish with the link post."
-                    : linkPreview.imageUrl && includeLinkPreviewImage
+                    : normalizedLinkPreviewImageUrl && includeLinkPreviewImage
                       ? "The detected preview image will be shown on the published post."
                       : "Previewed metadata is optional. Leave the boxes unchecked if you only want the external link plus your own title/body."}
                 </p>

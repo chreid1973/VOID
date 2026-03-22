@@ -14,6 +14,7 @@ import RichPostBody from "./RichPostBody";
 import SavePostButton from "./SavePostButton";
 import { useMentionAutocomplete } from "./useMentionAutocomplete";
 import { useResolvedMentions } from "./useResolvedMentions";
+import { normalizePreviewImageUrl } from "../lib/previewImages";
 import { getYouTubeEmbedUrl, getYouTubeThumbnailUrl } from "../lib/youtube";
 
 type CommunityItem = {
@@ -115,11 +116,13 @@ function preferredPostImageUrl(
   imageUrl: string | null | undefined,
   url: string | null | undefined
 ) {
-  if (imageUrl?.startsWith("/api/media/")) {
-    return imageUrl;
+  const normalizedImageUrl = normalizePreviewImageUrl(imageUrl);
+
+  if (normalizedImageUrl?.startsWith("/api/media/")) {
+    return normalizedImageUrl;
   }
 
-  return getYouTubeThumbnailUrl(url) || imageUrl || null;
+  return getYouTubeThumbnailUrl(url) || normalizedImageUrl || null;
 }
 
 function voteDirection(value: 1 | -1 | null | undefined) {

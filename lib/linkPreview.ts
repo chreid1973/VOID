@@ -1,6 +1,7 @@
 const FETCH_TIMEOUT_MS = 4_000;
 const MAX_HTML_BYTES = 128 * 1024;
 import { getYouTubeThumbnailUrl, getYouTubeVideoId } from "./youtube";
+import { normalizePreviewImageUrl } from "./previewImages";
 
 type LinkMetadata = {
   url: string;
@@ -100,10 +101,11 @@ function resolveExternalAssetUrl(
   value: string | null | undefined,
   baseUrl: string
 ) {
-  if (!value) return null;
+  const normalizedValue = normalizePreviewImageUrl(value);
+  if (!normalizedValue) return null;
 
   try {
-    const resolved = new URL(value, baseUrl);
+    const resolved = new URL(normalizedValue, baseUrl);
 
     if (!["http:", "https:"].includes(resolved.protocol)) {
       return null;

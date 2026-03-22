@@ -10,6 +10,7 @@ import MentionText from "./MentionText";
 import ReportAction from "./ReportAction";
 import SavePostButton from "./SavePostButton";
 import ExternalAwareImage from "./ExternalAwareImage";
+import { normalizePreviewImageUrl } from "../lib/previewImages";
 import { getYouTubeThumbnailUrl } from "../lib/youtube";
 
 type FeedPost = {
@@ -109,11 +110,13 @@ const preferredPreviewImageUrl = (
   imageUrl: string | null | undefined,
   url: string | null | undefined
 ) => {
-  if (imageUrl?.startsWith("/api/media/")) {
-    return imageUrl;
+  const normalizedImageUrl = normalizePreviewImageUrl(imageUrl);
+
+  if (normalizedImageUrl?.startsWith("/api/media/")) {
+    return normalizedImageUrl;
   }
 
-  return getYouTubeThumbnailUrl(url) || imageUrl || null;
+  return getYouTubeThumbnailUrl(url) || normalizedImageUrl || null;
 };
 
 function Badge({
