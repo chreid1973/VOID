@@ -16,6 +16,15 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "SocialVOID - a better internet",
   description: "The modern discussion platform",
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+    },
+  },
 };
 
 export default function RootLayout({
