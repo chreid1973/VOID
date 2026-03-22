@@ -353,29 +353,28 @@ function PostCard({
             </Link>
           ) : null}
 
+          {p.url ? (
+            <a
+              href={p.url}
+              target="_blank"
+              rel="noreferrer"
+              className="post-source-link"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span aria-hidden="true">↗</span>
+              <span>View on {linkHost(p.url)}</span>
+            </a>
+          ) : null}
+
           <Link
             href={postHref(p.publicId)}
             prefetch={false}
             aria-label={`Open post: ${p.title}`}
             style={{ display: "block", textDecoration: "none", color: "inherit" }}
           >
-
             <h2 className="post-title">
               <MentionText text={p.title} mentions={p.mentions} />
             </h2>
-
-            {p.url ? (
-              <p
-                style={{
-                  fontSize: 12,
-                  lineHeight: 1.5,
-                  color: "#7a726a",
-                  marginBottom: p.body || previewImageUrl ? 10 : 12,
-                }}
-              >
-                ↗ {linkHost(p.url)}
-              </p>
-            ) : null}
 
             {p.body || previewImageUrl ? (
               <div
@@ -402,14 +401,10 @@ function PostCard({
                 ) : null}
 
                 {previewImageUrl ? (
-                  <a
-                    href={previewImageUrl}
-                    target="_blank"
-                    rel="noreferrer"
+                  <div
                     style={{
                       display: "block",
                     }}
-                    onClick={(e) => e.stopPropagation()}
                   >
                     <div
                       style={{
@@ -429,7 +424,7 @@ function PostCard({
                         fit="cover"
                       />
                     </div>
-                  </a>
+                  </div>
                 ) : null}
               </div>
             ) : null}

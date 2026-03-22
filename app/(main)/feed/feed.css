@@ -158,6 +158,27 @@ body {
   z-index: 3;
 }
 
+.post-source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  color: #bc8f67;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  transition: color 0.18s ease, opacity 0.18s ease;
+}
+
+.post-source-link:hover,
+.post-source-link:focus-visible {
+  color: #ffb072;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
 .post-title {
   font-family: var(--font-fraunces), Georgia, serif;
   font-size: 18.5px;
