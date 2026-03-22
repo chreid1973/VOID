@@ -12,7 +12,7 @@ export type PostShareMetadataBase = {
   body: string | null;
   url: string | null;
   imageKey: string | null;
-  createdAt: Date;
+  createdAt: Date | string;
   community: {
     displayName: string;
   };
@@ -24,6 +24,10 @@ export type PostShareMetadataBase = {
 
 export function toAbsoluteSiteUrl(value: string) {
   return new URL(value, SITE_URL).toString();
+}
+
+export function toShareIsoString(value: Date | string) {
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
 export function cleanShareText(

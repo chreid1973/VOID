@@ -15,6 +15,7 @@ import {
   loadCachedPostShareMetadataBase,
   resolvePostShareImageUrl,
   toAbsoluteSiteUrl,
+  toShareIsoString,
 } from "../../../../lib/postShare";
 
 function timeAgo(date: Date | string) {
@@ -238,7 +239,7 @@ export async function generateMetadata({
       siteName: SITE_NAME,
       title: post.title,
       description,
-      publishedTime: post.createdAt.toISOString(),
+      publishedTime: toShareIsoString(post.createdAt),
       authors: [post.author.displayName || post.author.username],
       images: imageUrl
         ? [
