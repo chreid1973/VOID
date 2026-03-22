@@ -90,7 +90,10 @@ const loadCachedTrendingRailPosts = unstable_cache(
     }));
   },
   ["trending-rail-posts"],
-  { revalidate: 60 }
+  {
+    revalidate: 60,
+    tags: ["trending-rail-posts"],
+  }
 );
 
 export async function loadTrendingRailPosts(limit = 5, excludePostId?: string) {

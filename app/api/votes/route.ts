@@ -1,6 +1,7 @@
 // app/api/votes/route.ts
 // Handles upvote / downvote / unvote for both posts and comments
 
+import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -73,6 +74,13 @@ export async function POST(req: NextRequest) {
     const updated = isPost
       ? await prisma.post.findUnique({ where: { id: targetId }, select: { score: true } })
       : await prisma.comment.findUnique({ where: { id: targetId }, select: { score: true } });
+
+    revalidateTag("post-page-content");
+
+    if (isPost) {
+      revalidateTag("feed-content");
+      revalidateTag("trending-rail-posts");
+    }
 
     return NextResponse.json({
       score: updated?.score ?? 0,
