@@ -2110,19 +2110,14 @@ export default function PostPageShell({
                       href={post.url}
                       target="_blank"
                       rel="noreferrer"
+                      className="post-source-link"
                       style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
                         marginBottom: 22,
-                        color: "#8a8682",
                         fontSize: 13,
-                        lineHeight: 1.5,
-                        textDecoration: "none",
                       }}
                     >
                       <span>↗</span>
-                      <span>{linkHost(post.url)}</span>
+                      <span>View on {linkHost(post.url)}</span>
                     </a>
                   ) : null}
 

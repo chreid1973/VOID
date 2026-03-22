@@ -358,11 +358,11 @@ function PostCard({
               href={p.url}
               target="_blank"
               rel="noreferrer"
-              className="post-source-link"
+              className="post-source-link post-source-link--feed"
               onClick={(e) => e.stopPropagation()}
             >
+              <span>{linkHost(p.url)}</span>
               <span aria-hidden="true">↗</span>
-              <span>View on {linkHost(p.url)}</span>
             </a>
           ) : null}
 
