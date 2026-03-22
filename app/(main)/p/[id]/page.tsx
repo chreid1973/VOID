@@ -8,10 +8,14 @@ import { loadTrendingRailPosts } from "../../../../lib/trendingRail";
 import PostPageShell from "../../../../components/PostPageShell";
 import { resolveStoredImageUrl } from "../../../../r2";
 import { filterMentionUsernames, loadExistingMentionUsernames } from "../../../../lib/mentions";
-import { normalizePreviewImageUrl } from "../../../../lib/previewImages";
-
-const SITE_URL = "https://socialvoid.ca";
-const SITE_NAME = "SocialVOID";
+import {
+  SITE_NAME,
+  buildFallbackPostShareImageUrl,
+  buildPostShareDescription,
+  loadCachedPostShareMetadataBase,
+  resolvePostShareImageUrl,
+  toAbsoluteSiteUrl,
+} from "../../../../lib/postShare";
 
 function timeAgo(date: Date | string) {
   const timestamp = date instanceof Date ? date.getTime() : new Date(date).getTime();
@@ -60,52 +64,6 @@ function resolveBackHref(
   return communityName
     ? `/feed?community=${encodeURIComponent(communityName)}`
     : "/feed";
-}
-
-function toAbsoluteSiteUrl(value: string) {
-  return new URL(value, SITE_URL).toString();
-}
-
-function cleanShareText(value: string | null | undefined, maxLength: number) {
-  if (!value) return null;
-
-  const normalized = value.replace(/\s+/g, " ").trim();
-  if (!normalized) return null;
-
-  return normalized.length > maxLength
-    ? `${normalized.slice(0, maxLength - 1).trimEnd()}…`
-    : normalized;
-}
-
-function buildPostShareDescription(post: {
-  body: string | null;
-  community: { displayName: string };
-  author: { username: string; displayName: string | null };
-  url: string | null;
-}) {
-  const snippet = cleanShareText(post.body, 180);
-
-  if (snippet) {
-    return snippet;
-  }
-
-  const authorName = post.author.displayName || post.author.username;
-
-  if (post.url) {
-    try {
-      const hostname = new URL(post.url).hostname.replace(/^www\./i, "");
-      return `Shared in ${post.community.displayName} by ${authorName} on ${SITE_NAME} from ${hostname}.`;
-    } catch {}
-  }
-
-  return `A discussion in ${post.community.displayName} by ${authorName} on ${SITE_NAME}.`;
-}
-
-function resolvePostShareImageUrl(imageRef: string | null | undefined) {
-  const normalizedImageRef = normalizePreviewImageUrl(imageRef);
-  if (!normalizedImageRef) return null;
-
-  return toAbsoluteSiteUrl(resolveStoredImageUrl(normalizedImageRef));
 }
 
 type LoadedComment = {
@@ -239,46 +197,9 @@ async function loadPostPageBase(id: string, includeHidden = false) {
   };
 }
 
-async function loadPostShareMetadataBase(id: string) {
-  return prisma.post.findFirst({
-    where: {
-      OR: [{ publicId: id }, { id }],
-      isHidden: false,
-    },
-    select: {
-      publicId: true,
-      title: true,
-      body: true,
-      url: true,
-      imageKey: true,
-      createdAt: true,
-      community: {
-        select: {
-          displayName: true,
-        },
-      },
-      author: {
-        select: {
-          username: true,
-          displayName: true,
-        },
-      },
-    },
-  });
-}
-
 const loadCachedPublicPostPageBase = unstable_cache(
   async (id: string) => loadPostPageBase(id, false),
   ["post-page-content"],
-  {
-    revalidate: 30,
-    tags: ["post-page-content"],
-  }
-);
-
-const loadCachedPostShareMetadataBase = unstable_cache(
-  async (id: string) => loadPostShareMetadataBase(id),
-  ["post-share-metadata"],
   {
     revalidate: 30,
     tags: ["post-page-content"],
@@ -301,7 +222,9 @@ export async function generateMetadata({
 
   const canonicalUrl = toAbsoluteSiteUrl(`/p/${post.publicId}`);
   const description = buildPostShareDescription(post);
-  const imageUrl = resolvePostShareImageUrl(post.imageKey);
+  const imageUrl =
+    resolvePostShareImageUrl(post.imageKey) ??
+    buildFallbackPostShareImageUrl(post.publicId);
 
   return {
     title: post.title,
@@ -327,7 +250,7 @@ export async function generateMetadata({
         : undefined,
     },
     twitter: {
-      card: imageUrl ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title: post.title,
       description,
       images: imageUrl ? [imageUrl] : undefined,
