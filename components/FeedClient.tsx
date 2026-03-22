@@ -54,6 +54,7 @@ type FeedCommunity = {
   id: string;
   name: string;
   displayName: string;
+  description: string | null;
   color: string;
   icon: string;
   memberCount: number;
@@ -478,12 +479,12 @@ function PostCard({
 }
 
 function RightRail({
-  posts,
+  selectedCommunity,
   trendingPosts,
   communities,
   postHref,
 }: {
-  posts: FeedPost[];
+  selectedCommunity: FeedCommunity | null;
   trendingPosts: FeedRailPost[];
   communities: FeedCommunity[];
   postHref: (publicId: string) => string;
@@ -519,8 +520,34 @@ function RightRail({
         >
           + Create Post
         </Link>
-
       </div>
+
+      {selectedCommunity?.description ? (
+        <div className="card" style={{ padding: "16px 18px", marginBottom: 14 }}>
+          <p
+            style={{
+              fontSize: 10.5,
+              fontWeight: 700,
+              letterSpacing: ".16em",
+              textTransform: "uppercase",
+              color: selectedCommunity.color,
+              marginBottom: 10,
+            }}
+          >
+            {selectedCommunity.displayName}
+          </p>
+
+          <p
+            style={{
+              fontSize: 12.5,
+              color: "#8b847c",
+              lineHeight: 1.6,
+            }}
+          >
+            {selectedCommunity.description}
+          </p>
+        </div>
+      ) : null}
 
       <div className="card" style={{ padding: "16px 18px", marginBottom: 14 }}>
         <h3
@@ -963,7 +990,7 @@ export default function FeedClient({
         </main>
 
         <RightRail
-          posts={initialPosts}
+          selectedCommunity={selectedCommunity}
           trendingPosts={railPosts}
           communities={communities}
           postHref={postHref}

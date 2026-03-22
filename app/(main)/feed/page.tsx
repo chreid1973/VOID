@@ -523,6 +523,7 @@ export default async function FeedPage({
     id: community.id,
     name: community.name,
     displayName: community.displayName,
+    description: community.description,
     color: community.color,
     icon: community.icon,
     memberCount: community.memberCount,

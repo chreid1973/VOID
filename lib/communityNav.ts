@@ -5,6 +5,7 @@ export type CommunityNavigationItem = {
   id: string;
   name: string;
   displayName: string;
+  description: string | null;
   color: string;
   icon: string;
   memberCount: number;
@@ -19,6 +20,7 @@ const loadCachedCommunityNavigationItems = unstable_cache(
         id: true,
         name: true,
         displayName: true,
+        description: true,
         color: true,
         icon: true,
         _count: {
@@ -34,6 +36,7 @@ const loadCachedCommunityNavigationItems = unstable_cache(
       id: community.id,
       name: community.name,
       displayName: community.displayName,
+      description: community.description,
       color: community.color,
       icon: community.icon,
       memberCount: community._count.members,
