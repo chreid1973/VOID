@@ -83,6 +83,70 @@ const communitySeeds = [
     color: "#7f6bff",
     description: "AI tools, practical workflows, and where the hype meets reality.",
   },
+  {
+    name: "art",
+    displayName: "Art",
+    icon: "🎨",
+    color: "#c56bff",
+    description:
+      "Painting, illustration, galleries, visual art, and the work people cannot stop looking at.",
+  },
+  {
+    name: "books",
+    displayName: "Books",
+    icon: "📚",
+    color: "#6fa8ff",
+    description:
+      "Books, authors, reading lists, literary debate, and what is worth your time.",
+  },
+  {
+    name: "food",
+    displayName: "Food",
+    icon: "🍜",
+    color: "#ff8a5b",
+    description:
+      "Recipes, restaurants, home cooking, food culture, and meals worth sharing.",
+  },
+  {
+    name: "history",
+    displayName: "History",
+    icon: "🏛",
+    color: "#d6b25e",
+    description:
+      "Historical events, people, timelines, revision debates, and the long memory of culture.",
+  },
+  {
+    name: "programming",
+    displayName: "Programming",
+    icon: "⌘",
+    color: "#5beea3",
+    description:
+      "Code, software, debugging, engineering culture, and building things that actually work.",
+  },
+  {
+    name: "questions",
+    displayName: "Questions",
+    icon: "?",
+    color: "#f0b35b",
+    description:
+      "Questions, prompts, curious hypotheticals, and the threads that get people talking.",
+  },
+  {
+    name: "tech",
+    displayName: "Technology",
+    icon: "⚡",
+    color: "#5b8dee",
+    description:
+      "Technology news, gadgets, platforms, and the systems shaping how people live online.",
+  },
+  {
+    name: "travel",
+    displayName: "Travel",
+    icon: "✈",
+    color: "#5bc7ee",
+    description:
+      "Trips, destinations, travel advice, itineraries, and stories from the road.",
+  },
 ] as const;
 
 const userSeeds = [
