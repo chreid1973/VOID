@@ -19,7 +19,6 @@ const policyLinks = [
   { href: "/terms-of-service" as const, label: "Terms" },
   { href: "/privacy-policy" as const, label: "Privacy" },
   { href: "/community-rules" as const, label: "Rules" },
-  { href: "/moderation-philosophy" as const, label: "Moderation" },
 ];
 
 export default function PolicyPageShell({
