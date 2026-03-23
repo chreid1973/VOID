@@ -4,7 +4,8 @@ import Link from "next/link";
 export function renderMentionTextNodes(
   text: string,
   mentions: string[],
-  keyPrefix = "mention"
+  keyPrefix = "mention",
+  linkMentions = true
 ) {
   const mentionRegex = /(^|[^a-z0-9_])@([a-z0-9_]{3,24})(?=$|[^a-z0-9_])/gi;
   const validMentions = new Set(
@@ -30,7 +31,7 @@ export function renderMentionTextNodes(
       nodes.push(prefix);
     }
 
-    if (validMentions.has(username)) {
+    if (validMentions.has(username) && linkMentions) {
       nodes.push(
         <Link
           key={`${keyPrefix}-${username}-${key}`}
@@ -63,9 +64,11 @@ export function renderMentionTextNodes(
 export default function MentionText({
   text,
   mentions,
+  linkMentions = true,
 }: {
   text: string;
   mentions: string[];
+  linkMentions?: boolean;
 }) {
-  return <>{renderMentionTextNodes(text, mentions)}</>;
+  return <>{renderMentionTextNodes(text, mentions, "mention", linkMentions)}</>;
 }

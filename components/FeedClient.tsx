@@ -373,7 +373,7 @@ function PostCard({
             style={{ display: "block", textDecoration: "none", color: "inherit" }}
           >
             <h2 className="post-title">
-              <MentionText text={p.title} mentions={p.mentions} />
+              <MentionText text={p.title} mentions={p.mentions} linkMentions={false} />
             </h2>
 
             {p.body || previewImageUrl ? (
@@ -396,7 +396,11 @@ function PostCard({
                       overflow: "hidden",
                     }}
                     >
-                      <MentionText text={p.body} mentions={p.mentions} />
+                      <MentionText
+                        text={p.body}
+                        mentions={p.mentions}
+                        linkMentions={false}
+                      />
                     </p>
                 ) : null}
 
