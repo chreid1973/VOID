@@ -3,6 +3,7 @@ import { currentUser as getClerkAccount } from "@clerk/nextjs/server";
 import { notFound } from "next/navigation";
 import { getCurrentUser, isAdminUser } from "../../../../auth";
 import FollowUserButton from "../../../../components/FollowUserButton";
+import BackToFeedButton from "../../../../components/BackToFeedButton";
 import ProfileEditor from "../../../../components/ProfileEditor";
 import ProfileSignOutButton from "../../../../components/ProfileSignOutButton";
 import { prisma } from "../../../../lib/prisma";
@@ -287,24 +288,7 @@ export default async function UserProfilePage({
       }}
     >
       <div style={{ maxWidth: 920, margin: "0 auto" }}>
-        <Link
-          href="/feed"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 5,
-            textDecoration: "none",
-            color: "#6a6764",
-            border: "1px solid #242323",
-            borderRadius: 7,
-            padding: "5px 13px",
-            fontSize: 12.5,
-            fontWeight: 500,
-            marginBottom: 20,
-          }}
-        >
-          ← Back to feed
-        </Link>
+        <BackToFeedButton />
 
         <div
           style={{
