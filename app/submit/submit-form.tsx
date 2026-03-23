@@ -346,17 +346,16 @@ export default function SubmitForm({
         crosspostOfPostId: crosspostSource?.id,
       }),
       });
+      const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
         setPhase("idle");
         setSubmitError(data?.error || "Failed to create post.");
         return;
       }
 
       setPhase("redirecting");
-      router.push("/feed");
-      router.refresh();
+      router.replace(data?.publicId ? `/p/${data.publicId}` : "/feed");
     } catch (error) {
       setPhase("idle");
       setSubmitError(
@@ -1061,7 +1060,7 @@ export default function SubmitForm({
             }}
           >
             {phase === "redirecting"
-              ? "Opening feed..."
+              ? "Opening post..."
               : loading
                 ? "Posting..."
                 : isCrosspost
