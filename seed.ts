@@ -92,6 +92,14 @@ const communitySeeds = [
       "Painting, illustration, galleries, visual art, and the work people cannot stop looking at.",
   },
   {
+    name: "photography",
+    displayName: "Photography",
+    icon: "📷",
+    color: "#79b6ff",
+    description:
+      "Photography, cameras, visual storytelling, editing, and the shots worth slowing down for.",
+  },
+  {
     name: "books",
     displayName: "Books",
     icon: "📚",
@@ -130,6 +138,14 @@ const communitySeeds = [
     color: "#f0b35b",
     description:
       "Questions, prompts, curious hypotheticals, and the threads that get people talking.",
+  },
+  {
+    name: "interesting",
+    displayName: "Interesting",
+    icon: "✹",
+    color: "#f0c15b",
+    description:
+      "Curiosities, odd finds, surprising facts, and the things people cannot help clicking on.",
   },
   {
     name: "tech",

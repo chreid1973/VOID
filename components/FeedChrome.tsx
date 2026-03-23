@@ -74,7 +74,7 @@ const COMMUNITY_GROUPS = [
   },
   {
     label: "Ideas",
-    communityNames: ["questions", "science", "space", "philosophy"],
+    communityNames: ["questions", "interesting", "science", "space", "philosophy"],
   },
   {
     label: "World",
@@ -86,7 +86,7 @@ const COMMUNITY_GROUPS = [
   },
   {
     label: "Culture",
-    communityNames: ["design", "art", "books"],
+    communityNames: ["design", "art", "photography", "books"],
   },
 ] as const;
 
