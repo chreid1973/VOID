@@ -17,9 +17,8 @@ export default function CommentGifPreview({
     <div
       style={{
         marginTop: compact ? 8 : 10,
-        border: "1px solid #252424",
-        borderRadius: 10,
-        background: "#141313",
+        borderRadius: showMeta ? 10 : 0,
+        background: showMeta ? "#141313" : "transparent",
         overflow: "hidden",
       }}
     >
@@ -66,8 +65,8 @@ export default function CommentGifPreview({
       <div
         style={{
           maxHeight: compact ? 220 : 280,
-          background: "#0f0e0e",
-          padding: compact ? "0 0 0 10px" : "0 0 0 12px",
+          background: showMeta ? "#0f0e0e" : "transparent",
+          padding: showMeta ? (compact ? "0 0 0 10px" : "0 0 0 12px") : 0,
         }}
       >
         <img
