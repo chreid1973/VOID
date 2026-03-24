@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import GlobalSearchBox from "./GlobalSearchBox";
+import IntentPrefetchLink from "./IntentPrefetchLink";
 
 type CommunityNavItem = {
   id: string;
@@ -35,6 +36,9 @@ type FeedTopBarProps =
       sort: FeedSort;
       onSortChange: (sort: FeedSort) => void;
       onHomeClick: () => void;
+      homeHref: string;
+      getSortHref: (sort: FeedSort) => string;
+      onPrefetchHref: (href: string) => void;
       currentUser: TopBarCurrentUser | null;
       notificationUnreadCount: number;
     }
@@ -55,6 +59,8 @@ type FeedSidebarProps =
       mode: "feed";
       sel: string | null;
       onSelect: (selection: string | null) => void;
+      getSelectionHref: (selection: string | null) => string;
+      onPrefetchHref: (href: string) => void;
       communities: CommunityNavItem[];
     }
   | {
@@ -147,9 +153,9 @@ export function CommunityBadge({
   if (!href) return content;
 
   return (
-    <Link href={href} prefetch={false} style={{ textDecoration: "none" }}>
+    <IntentPrefetchLink href={href} style={{ textDecoration: "none" }}>
       {content}
-    </Link>
+    </IntentPrefetchLink>
   );
 }
 
@@ -166,6 +172,8 @@ export function FeedTopBar(props: FeedTopBarProps) {
       {props.mode === "feed" ? (
         <div
           onClick={props.onHomeClick}
+          onMouseEnter={() => props.onPrefetchHref(props.homeHref)}
+          onTouchStart={() => props.onPrefetchHref(props.homeHref)}
           style={{
             display: "flex",
             alignItems: "center",
@@ -271,6 +279,9 @@ export function FeedTopBar(props: FeedTopBarProps) {
                 key={value}
                 className={`srt ${props.sort === value ? "on" : ""}`}
                 onClick={() => props.onSortChange(value)}
+                onMouseEnter={() => props.onPrefetchHref(props.getSortHref(value))}
+                onFocus={() => props.onPrefetchHref(props.getSortHref(value))}
+                onTouchStart={() => props.onPrefetchHref(props.getSortHref(value))}
                 type="button"
               >
                 {props.sort === value ? `${ic} ${label}` : label}
@@ -280,15 +291,14 @@ export function FeedTopBar(props: FeedTopBarProps) {
         ) : props.mode === "post" ? (
           <div style={{ display: "flex", gap: 4 }}>
             {sortOptions.map(([, value, label], i) => (
-              <Link
+              <IntentPrefetchLink
                 key={value}
                 href={`/feed?sort=${value}`}
-                prefetch={false}
                 className={`srt ${i === 0 ? "on" : ""}`}
                 style={{ textDecoration: "none" }}
               >
                 {label.toUpperCase()}
-              </Link>
+              </IntentPrefetchLink>
             ))}
           </div>
         ) : null}
@@ -500,6 +510,8 @@ export function FeedSidebar(props: FeedSidebarProps) {
           key={c.id}
           className={`com-item ${norm(props.sel) === norm(c.name) ? "active" : ""}`}
           onClick={() => props.onSelect(c.name)}
+          onMouseEnter={() => props.onPrefetchHref(props.getSelectionHref(c.name))}
+          onTouchStart={() => props.onPrefetchHref(props.getSelectionHref(c.name))}
           style={
             norm(props.sel) === norm(c.name)
               ? { color: c.color, background: c.color + "12", cursor: "pointer" }
@@ -538,10 +550,9 @@ export function FeedSidebar(props: FeedSidebarProps) {
     }
 
     return (
-      <Link
+      <IntentPrefetchLink
         key={c.id}
         href={`/feed?community=${encodeURIComponent(c.name)}`}
-        prefetch={false}
         className={`com-item ${norm(activeCommunity) === norm(c.name) ? "active" : ""}`}
         style={
           norm(activeCommunity) === norm(c.name)
@@ -581,7 +592,7 @@ export function FeedSidebar(props: FeedSidebarProps) {
         >
           {c.postCount}p · {c.memberCount}m
         </span>
-      </Link>
+      </IntentPrefetchLink>
     );
   }
 
@@ -602,6 +613,8 @@ export function FeedSidebar(props: FeedSidebarProps) {
             key={String(item.id)}
             className={`com-item ${props.sel === item.id ? "active" : ""}`}
             onClick={() => props.onSelect(item.id)}
+            onMouseEnter={() => props.onPrefetchHref(props.getSelectionHref(item.id))}
+            onTouchStart={() => props.onPrefetchHref(props.getSelectionHref(item.id))}
             style={{ cursor: "pointer" }}
           >
             <span style={{ fontSize: 13 }}>{item.icon}</span>
@@ -610,45 +623,41 @@ export function FeedSidebar(props: FeedSidebarProps) {
         ))
       ) : (
         <>
-          <Link
+          <IntentPrefetchLink
             href="/feed"
-            prefetch={false}
             className="com-item"
             style={{ textDecoration: "none" }}
           >
             <span style={{ fontSize: 13 }}>⌂</span>
             Home Feed
-          </Link>
+          </IntentPrefetchLink>
 
-          <Link
+          <IntentPrefetchLink
             href="/feed?scope=popular"
-            prefetch={false}
             className="com-item"
             style={{ textDecoration: "none" }}
           >
             <span style={{ fontSize: 13 }}>🔥</span>
             Popular
-          </Link>
+          </IntentPrefetchLink>
 
-          <Link
+          <IntentPrefetchLink
             href="/feed?scope=following"
-            prefetch={false}
             className="com-item"
             style={{ textDecoration: "none" }}
           >
             <span style={{ fontSize: 13 }}>◎</span>
             Following
-          </Link>
+          </IntentPrefetchLink>
 
-          <Link
+          <IntentPrefetchLink
             href="/feed?scope=all"
-            prefetch={false}
             className="com-item"
             style={{ textDecoration: "none" }}
           >
             <span style={{ fontSize: 13 }}>✦</span>
             All Posts
-          </Link>
+          </IntentPrefetchLink>
         </>
       )}
 
@@ -668,13 +677,12 @@ export function FeedSidebar(props: FeedSidebarProps) {
           {footerLinks.map((link, index) => (
             <span key={link.href}>
               {index > 0 ? " · " : null}
-              <Link
+              <IntentPrefetchLink
                 href={link.href}
-                prefetch={false}
                 style={{ color: "#7b746c", textDecoration: "none" }}
               >
                 {link.label}
-              </Link>
+              </IntentPrefetchLink>
             </span>
           ))}
         </p>

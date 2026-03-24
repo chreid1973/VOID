@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "../app/(main)/feed/feed.css";
 import { ActionNotice, type ActionNoticeState } from "./ActionNotice";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
+import IntentPrefetchLink from "./IntentPrefetchLink";
 import MentionText from "./MentionText";
 import ReportAction from "./ReportAction";
 import SavePostButton from "./SavePostButton";
@@ -313,14 +313,13 @@ function PostCard({
               </span>
             )}
 
-            <Link
+            <IntentPrefetchLink
               href={`/u/${encodeURIComponent(p.authorUsername)}`}
-              prefetch={false}
               style={{ fontSize: 11.5, color: "#3d3c3a", textDecoration: "none" }}
               onClick={(e) => e.stopPropagation()}
             >
               u/<span style={{ color: "#565451" }}>{p.authorName}</span>
-            </Link>
+            </IntentPrefetchLink>
 
             <span style={{ fontSize: 11.5, color: "#2d2c2b" }}>·</span>
 
@@ -330,9 +329,8 @@ function PostCard({
           </div>
 
           {p.crosspostSource ? (
-            <Link
+            <IntentPrefetchLink
               href={postHref(p.crosspostSource.publicId)}
-              prefetch={false}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -350,7 +348,7 @@ function PostCard({
                 Crossposted from {p.crosspostSource.communityDisplayName} by u/
                 {p.crosspostSource.authorName}
               </span>
-            </Link>
+            </IntentPrefetchLink>
           ) : null}
 
           {p.url ? (
@@ -366,9 +364,8 @@ function PostCard({
             </a>
           ) : null}
 
-          <Link
+          <IntentPrefetchLink
             href={postHref(p.publicId)}
-            prefetch={false}
             aria-label={`Open post: ${p.title}`}
             style={{ display: "block", textDecoration: "none", color: "inherit" }}
           >
@@ -432,18 +429,17 @@ function PostCard({
                 ) : null}
               </div>
             ) : null}
-          </Link>
+          </IntentPrefetchLink>
 
           <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Link
+            <IntentPrefetchLink
               href={postHref(p.publicId)}
-              prefetch={false}
               className="act"
               style={{ textDecoration: "none" }}
               onClick={(e) => e.stopPropagation()}
             >
               ◎ {(p.comments ?? 0).toLocaleString()} comments
-            </Link>
+            </IntentPrefetchLink>
             <button
               className="act"
               onClick={async (e) => {
@@ -498,9 +494,8 @@ function RightRail({
           Join the conversation. Share what you know.
         </p>
 
-        <Link
+        <IntentPrefetchLink
           href="/submit"
-          prefetch={false}
           style={{
             width: "100%",
             background: "#ff4826",
@@ -521,7 +516,7 @@ function RightRail({
           }}
         >
           + Create Post
-        </Link>
+        </IntentPrefetchLink>
       </div>
 
       {selectedCommunity?.description ? (
@@ -566,10 +561,9 @@ function RightRail({
         </h3>
 
         {trendingPosts.map((p, i) => (
-          <Link
+          <IntentPrefetchLink
             key={p.id}
             href={postHref(p.publicId)}
-            prefetch={false}
             style={{
               display: "flex",
               gap: 10,
@@ -605,7 +599,7 @@ function RightRail({
                 </span>
               </div>
             </div>
-          </Link>
+          </IntentPrefetchLink>
         ))}
       </div>
     </aside>
@@ -713,6 +707,7 @@ export default function FeedClient({
   const [actionNotice, setActionNotice] = useState<ActionNoticeState | null>(
     null
   );
+  const prefetchedHrefsRef = useRef(new Set<string>());
   const sel =
     initialSelectedCommunity ??
     (initialScope === "following"
@@ -744,11 +739,7 @@ export default function FeedClient({
     return () => window.clearTimeout(timeoutId);
   }, [actionNotice]);
 
-  function updateFeedParams(
-    updates: Record<string, string | null | undefined>,
-    replace = false,
-    scroll = false
-  ) {
+  function buildFeedUrl(updates: Record<string, string | null | undefined>) {
     const params = new URLSearchParams(searchParams.toString());
 
     for (const [key, value] of Object.entries(updates)) {
@@ -759,7 +750,21 @@ export default function FeedClient({
       }
     }
 
-    const nextUrl = params.toString() ? `${pathname}?${params}` : pathname;
+    return params.toString() ? `${pathname}?${params}` : pathname;
+  }
+
+  function prefetchUrl(nextUrl: string) {
+    if (prefetchedHrefsRef.current.has(nextUrl)) return;
+    prefetchedHrefsRef.current.add(nextUrl);
+    void router.prefetch(nextUrl);
+  }
+
+  function updateFeedParams(
+    updates: Record<string, string | null | undefined>,
+    replace = false,
+    scroll = false
+  ) {
+    const nextUrl = buildFeedUrl(updates);
 
     if (replace) {
       router.replace(nextUrl, { scroll });
@@ -769,32 +774,36 @@ export default function FeedClient({
     router.push(nextUrl, { scroll });
   }
 
-  function handleSelect(selection: string | null) {
+  function getSelectionHref(selection: string | null) {
     if (selection === null) {
-      updateFeedParams({ community: null, scope: null, page: null });
-      return;
+      return buildFeedUrl({ community: null, scope: null, page: null });
     }
 
     if (selection === "__popular") {
-      updateFeedParams({ community: null, scope: "popular", page: null });
-      return;
+      return buildFeedUrl({ community: null, scope: "popular", page: null });
     }
 
     if (selection === "__following") {
-      updateFeedParams({ community: null, scope: "following", page: null });
-      return;
+      return buildFeedUrl({ community: null, scope: "following", page: null });
     }
 
     if (selection === "__all") {
-      updateFeedParams({ community: null, scope: "all", page: null });
-      return;
+      return buildFeedUrl({ community: null, scope: "all", page: null });
     }
 
-    updateFeedParams({ community: selection, scope: null, page: null });
+    return buildFeedUrl({ community: selection, scope: null, page: null });
+  }
+
+  function handleSelect(selection: string | null) {
+    router.push(getSelectionHref(selection), { scroll: false });
   }
 
   function handleSortChange(sort: FeedSort) {
     updateFeedParams({ sort, page: null });
+  }
+
+  function getSortHref(sort: FeedSort) {
+    return buildFeedUrl({ sort, page: null });
   }
 
   function handlePageChange(nextPage: number) {
@@ -810,6 +819,9 @@ export default function FeedClient({
         sort={initialSort}
         onSortChange={handleSortChange}
         onHomeClick={() => handleSelect(null)}
+        homeHref={getSelectionHref(null)}
+        getSortHref={getSortHref}
+        onPrefetchHref={prefetchUrl}
         currentUser={currentUser}
         notificationUnreadCount={notificationUnreadCount}
       />
@@ -819,6 +831,8 @@ export default function FeedClient({
           mode="feed"
           sel={sel}
           onSelect={handleSelect}
+          getSelectionHref={getSelectionHref}
+          onPrefetchHref={prefetchUrl}
           communities={communities}
         />
 

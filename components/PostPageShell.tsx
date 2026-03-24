@@ -9,6 +9,7 @@ import CommentGifPreview from "./CommentGifPreview";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
 import ExternalAwareImage from "./ExternalAwareImage";
 import GiphyPicker from "./GiphyPicker";
+import IntentPrefetchLink from "./IntentPrefetchLink";
 import MentionAutocompleteMenu from "./MentionAutocompleteMenu";
 import MentionText from "./MentionText";
 import ReportAction from "./ReportAction";
@@ -515,9 +516,8 @@ function RightRail({
           Join the conversation. Share what you know.
         </p>
 
-        <Link
+        <IntentPrefetchLink
           href="/submit"
-          prefetch={false}
           style={{
             width: "100%",
             background: "#ff4826",
@@ -538,7 +538,7 @@ function RightRail({
           }}
         >
           + Create Post
-        </Link>
+        </IntentPrefetchLink>
 
       </div>
 
@@ -557,10 +557,9 @@ function RightRail({
         </h3>
 
         {posts.slice(0, 5).map((p, i) => (
-          <Link
-              key={p.id}
+          <IntentPrefetchLink
+            key={p.id}
             href={`/p/${p.publicId}`}
-            prefetch={false}
             style={{
               display: "flex",
               gap: 10,
@@ -616,7 +615,7 @@ function RightRail({
                 </span>
               </div>
             </div>
-          </Link>
+          </IntentPrefetchLink>
         ))}
       </div>
     </aside>
@@ -2009,9 +2008,8 @@ export default function PostPageShell({
 
         <main className="feed-main">
           <div style={{ animation: "rise .3s ease" }}>
-            <Link
+            <IntentPrefetchLink
               href={backHref}
-              prefetch={false}
               style={{
                 background: "none",
                 border: "1px solid #242323",
@@ -2031,7 +2029,7 @@ export default function PostPageShell({
               }}
             >
               ← Back to feed
-            </Link>
+            </IntentPrefetchLink>
 
             <div
               className="card"
@@ -2055,21 +2053,19 @@ export default function PostPageShell({
                 />
 
                 <span style={{ fontSize: 12, color: "#464442" }}>
-                  <Link
+                  <IntentPrefetchLink
                     href={`/u/${encodeURIComponent(post.author.username)}`}
-                    prefetch={false}
                     style={{ color: "inherit", textDecoration: "none" }}
                   >
                     u/{post.author.displayName || post.author.username}
-                  </Link>{" "}
+                  </IntentPrefetchLink>{" "}
                   · {timeAgo(post.createdAt, nowMs)}
                 </span>
               </div>
 
               {post.crosspostSource ? (
-                <Link
+                <IntentPrefetchLink
                   href={`/p/${post.crosspostSource.publicId}`}
-                  prefetch={false}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
@@ -2086,7 +2082,7 @@ export default function PostPageShell({
                     Crossposted from {post.crosspostSource.communityDisplayName} by u/
                     {post.crosspostSource.authorName}
                   </span>
-                </Link>
+                </IntentPrefetchLink>
               ) : null}
 
               {editingPost ? (
@@ -2322,14 +2318,13 @@ export default function PostPageShell({
                   </button>
                 ) : null}
                 {post.isOwner && !editingPost ? (
-                  <Link
+                  <IntentPrefetchLink
                     href={`/submit?crosspost=${encodeURIComponent(post.id)}`}
-                    prefetch={false}
                     className="act"
                     style={{ textDecoration: "none" }}
                   >
                     Crosspost
-                  </Link>
+                  </IntentPrefetchLink>
                 ) : null}
                 {post.isOwner && !editingPost ? (
                   <button
