@@ -228,7 +228,13 @@ export function FeedTopBar(props: FeedTopBarProps) {
 
       <div style={{ width: 1, height: 22, background: "#1e1d1d", flexShrink: 0 }} />
 
-      <div style={{ flex: 1, maxWidth: 460, position: "relative" }}>
+      <div
+        style={{
+          width: "min(460px, 100%)",
+          flexShrink: 0,
+          position: "relative",
+        }}
+      >
         <span
           style={{
             position: "absolute",
@@ -248,36 +254,45 @@ export function FeedTopBar(props: FeedTopBarProps) {
         />
       </div>
 
-      {props.mode === "feed" ? (
-        <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
-          {sortOptions.map(([ic, value, label]) => (
-            <button
-              key={value}
-              className={`srt ${props.sort === value ? "on" : ""}`}
-              onClick={() => props.onSortChange(value)}
-              type="button"
-            >
-              {props.sort === value ? `${ic} ${label}` : label}
-            </button>
-          ))}
-        </div>
-      ) : props.mode === "post" ? (
-        <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
-          {sortOptions.map(([, value, label], i) => (
-            <Link
-              key={value}
-              href={`/feed?sort=${value}`}
-              prefetch={false}
-              className={`srt ${i === 0 ? "on" : ""}`}
-              style={{ textDecoration: "none" }}
-            >
-              {label.toUpperCase()}
-            </Link>
-          ))}
-        </div>
-      ) : (
-        <div style={{ marginLeft: "auto" }} />
-      )}
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: "0 18px",
+        }}
+      >
+        {props.mode === "feed" ? (
+          <div style={{ display: "flex", gap: 4 }}>
+            {sortOptions.map(([ic, value, label]) => (
+              <button
+                key={value}
+                className={`srt ${props.sort === value ? "on" : ""}`}
+                onClick={() => props.onSortChange(value)}
+                type="button"
+              >
+                {props.sort === value ? `${ic} ${label}` : label}
+              </button>
+            ))}
+          </div>
+        ) : props.mode === "post" ? (
+          <div style={{ display: "flex", gap: 4 }}>
+            {sortOptions.map(([, value, label], i) => (
+              <Link
+                key={value}
+                href={`/feed?sort=${value}`}
+                prefetch={false}
+                className={`srt ${i === 0 ? "on" : ""}`}
+                style={{ textDecoration: "none" }}
+              >
+                {label.toUpperCase()}
+              </Link>
+            ))}
+          </div>
+        ) : null}
+      </div>
 
       <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
         {props.currentUser ? (
