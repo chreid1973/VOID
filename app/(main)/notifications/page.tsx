@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import BackToFeedButton from "../../../components/BackToFeedButton";
 import { getAuthState } from "../../../auth";
 import { prisma } from "../../../lib/prisma";
 import { NotificationType } from "@prisma/client";
@@ -142,21 +143,7 @@ export default async function NotificationsPage() {
             </h1>
           </div>
 
-          <Link
-            href="/feed"
-            style={{
-              background: "none",
-              border: "1px solid #242323",
-              borderRadius: 8,
-              color: "#d8d2ca",
-              fontSize: 13,
-              fontWeight: 600,
-              padding: "8px 14px",
-              textDecoration: "none",
-            }}
-          >
-            ← Back to Feed
-          </Link>
+          <BackToFeedButton />
         </div>
 
         <div
