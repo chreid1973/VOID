@@ -1674,30 +1674,6 @@ const CommentNode = memo(function CommentNode({
       ) : null}
     </div>
   );
-}, function areCommentNodePropsEqual(prev, next) {
-  if (prev.comment !== next.comment) return false;
-  if (prev.postId !== next.postId) return false;
-  if (prev.postPublicId !== next.postPublicId) return false;
-  if (prev.depth !== next.depth) return false;
-  if (prev.nowMs !== next.nowMs) return false;
-  if (prev.initialNowMs !== next.initialNowMs) return false;
-  if (prev.canReport !== next.canReport) return false;
-
-  const prevRepliesCollapsed = prev.collapsedReplies[prev.comment.id] ?? false;
-  const nextRepliesCollapsed = next.collapsedReplies[next.comment.id] ?? false;
-  if (prevRepliesCollapsed !== nextRepliesCollapsed) return false;
-
-  const prevIsReplying =
-    !prev.comment.isDeleted && prev.replyingTo === prev.comment.id;
-  const nextIsReplying =
-    !next.comment.isDeleted && next.replyingTo === next.comment.id;
-  if (prevIsReplying !== nextIsReplying) return false;
-
-  const prevIsHighlighted = prev.highlightedCommentId === prev.comment.id;
-  const nextIsHighlighted = next.highlightedCommentId === next.comment.id;
-  if (prevIsHighlighted !== nextIsHighlighted) return false;
-
-  return true;
 });
 
 const PostCommentSection = memo(function PostCommentSection({

@@ -67,6 +67,7 @@ export default function CommentGifPreview({
         style={{
           maxHeight: compact ? 220 : 280,
           background: "#0f0e0e",
+          padding: compact ? "0 0 0 10px" : "0 0 0 12px",
         }}
       >
         <img
@@ -75,11 +76,12 @@ export default function CommentGifPreview({
           loading="lazy"
           decoding="async"
           style={{
-            width: "100%",
+            width: "auto",
+            maxWidth: "100%",
             maxHeight: compact ? 220 : 280,
             display: "block",
             objectFit: "contain",
-            margin: "0 auto",
+            margin: 0,
           }}
         />
       </div>
