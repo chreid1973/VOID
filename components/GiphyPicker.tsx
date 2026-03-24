@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import type { CommentGif } from "../lib/commentGifs";
 
 const GIPHY_API_KEY = process.env.NEXT_PUBLIC_GIPHY_API_KEY?.trim() ?? "";
-const RESULT_LIMIT = 18;
+const RESULT_LIMIT = 20;
 
 type GiphyApiAsset = {
   url?: string;
@@ -20,6 +20,15 @@ type GiphyApiGif = {
     fixed_width_still?: GiphyApiAsset;
     downsized_medium?: GiphyApiAsset;
     original?: GiphyApiAsset;
+  };
+};
+
+type GiphyApiResponse = {
+  data?: GiphyApiGif[];
+  pagination?: {
+    count?: number;
+    offset?: number;
+    total_count?: number;
   };
 };
 
@@ -66,13 +75,27 @@ function mapGifResult(gif: GiphyApiGif): GiphyPickerGif | null {
   };
 }
 
-async function loadGifs(query: string, signal: AbortSignal) {
+function mergeGifResults(current: GiphyPickerGif[], next: GiphyPickerGif[]) {
+  const seen = new Set(current.map((gif) => gif.id));
+  const merged = [...current];
+
+  for (const gif of next) {
+    if (seen.has(gif.id)) continue;
+    seen.add(gif.id);
+    merged.push(gif);
+  }
+
+  return merged;
+}
+
+async function loadGifs(query: string, signal: AbortSignal, offset: number) {
   const endpoint = query
     ? "https://api.giphy.com/v1/gifs/search"
     : "https://api.giphy.com/v1/gifs/trending";
   const params = new URLSearchParams({
     api_key: GIPHY_API_KEY,
     limit: String(RESULT_LIMIT),
+    offset: String(offset),
     rating: "pg-13",
     bundle: "messaging_non_clips",
   });
@@ -90,10 +113,18 @@ async function loadGifs(query: string, signal: AbortSignal) {
     throw new Error("Failed to load GIFs.");
   }
 
-  const payload = (await response.json()) as { data?: GiphyApiGif[] };
-  return Array.isArray(payload.data)
-    ? payload.data.map(mapGifResult).filter(Boolean) as GiphyPickerGif[]
+  const payload = (await response.json()) as GiphyApiResponse;
+  const results = Array.isArray(payload.data)
+    ? (payload.data.map(mapGifResult).filter(Boolean) as GiphyPickerGif[])
     : [];
+  const totalCount = payload.pagination?.total_count;
+  const nextOffset = payload.pagination?.offset ?? offset;
+  const hasMore =
+    typeof totalCount === "number"
+      ? nextOffset + results.length < totalCount
+      : results.length === RESULT_LIMIT;
+
+  return { results, hasMore };
 }
 
 export default function GiphyPicker({
@@ -107,56 +138,123 @@ export default function GiphyPicker({
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<GiphyPickerGif[]>([]);
+  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const resultsRef = useRef<HTMLDivElement | null>(null);
+  const queuedPageRef = useRef(false);
   const trimmedQuery = useMemo(() => query.trim(), [query]);
 
   useEffect(() => {
     if (!open) {
       setQuery("");
       setResults([]);
+      setPage(0);
       setLoading(false);
+      setLoadingMore(false);
+      setHasMore(false);
       setError(null);
+      queuedPageRef.current = false;
       return;
     }
 
     if (!GIPHY_API_KEY) {
       setResults([]);
+      setPage(0);
       setLoading(false);
+      setLoadingMore(false);
+      setHasMore(false);
       setError("Set NEXT_PUBLIC_GIPHY_API_KEY to search GIPHY.");
+      queuedPageRef.current = false;
+      return;
+    }
+
+    setResults([]);
+    setPage(0);
+    setLoading(false);
+    setLoadingMore(false);
+    setHasMore(false);
+    setError(null);
+    queuedPageRef.current = false;
+  }, [open, trimmedQuery]);
+
+  useEffect(() => {
+    if (!open || !GIPHY_API_KEY) {
       return;
     }
 
     const controller = new AbortController();
+    const isFirstPage = page === 0;
     const timeoutId = window.setTimeout(() => {
-      setLoading(true);
-      setError(null);
+      if (isFirstPage) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
 
-      void loadGifs(trimmedQuery, controller.signal)
-        .then((nextResults) => {
-          setResults(nextResults);
+      void loadGifs(trimmedQuery, controller.signal, page * RESULT_LIMIT)
+        .then(({ results: nextResults, hasMore: nextHasMore }) => {
+          setResults((current) =>
+            isFirstPage ? nextResults : mergeGifResults(current, nextResults),
+          );
+          setHasMore(nextHasMore);
+          setError(null);
         })
         .catch((err) => {
           if (controller.signal.aborted) {
             return;
           }
 
-          setResults([]);
+          if (isFirstPage) {
+            setResults([]);
+          }
+
           setError(err instanceof Error ? err.message : "Failed to load GIFs.");
         })
         .finally(() => {
-          if (!controller.signal.aborted) {
-            setLoading(false);
+          if (controller.signal.aborted) {
+            return;
           }
+
+          if (isFirstPage) {
+            setLoading(false);
+          } else {
+            setLoadingMore(false);
+          }
+
+          queuedPageRef.current = false;
         });
-    }, 220);
+    }, isFirstPage ? 220 : 0);
 
     return () => {
       controller.abort();
       window.clearTimeout(timeoutId);
     };
-  }, [open, trimmedQuery]);
+  }, [open, page, trimmedQuery]);
+
+  useEffect(() => {
+    const container = resultsRef.current;
+
+    if (
+      !container ||
+      !open ||
+      loading ||
+      loadingMore ||
+      !hasMore ||
+      queuedPageRef.current ||
+      results.length === 0
+    ) {
+      return;
+    }
+
+    if (container.scrollHeight <= container.clientHeight + 8) {
+      queuedPageRef.current = true;
+      setPage((current) => current + 1);
+    }
+  }, [hasMore, loading, loadingMore, open, results]);
 
   useEffect(() => {
     if (!open) return;
@@ -182,6 +280,21 @@ export default function GiphyPicker({
   if (!open) {
     return null;
   }
+
+  const handleResultsScroll = (event: UIEvent<HTMLDivElement>) => {
+    if (loading || loadingMore || !hasMore || queuedPageRef.current) {
+      return;
+    }
+
+    const target = event.currentTarget;
+
+    if (target.scrollTop + target.clientHeight < target.scrollHeight - 140) {
+      return;
+    }
+
+    queuedPageRef.current = true;
+    setPage((current) => current + 1);
+  };
 
   return (
     <div
@@ -287,86 +400,105 @@ export default function GiphyPicker({
               lineHeight: 1.5,
             }}
           >
-            {trimmedQuery ? `Showing GIFs for “${trimmedQuery}”.` : "Showing trending GIFs."} Powered by GIPHY.
+            {trimmedQuery
+              ? `Showing GIFs for “${trimmedQuery}”.`
+              : "Showing trending GIFs."}{" "}
+            Powered by GIPHY.
           </p>
         </div>
 
         <div
+          ref={resultsRef}
+          onScroll={handleResultsScroll}
           style={{
             padding: "16px 20px 20px",
             overflowY: "auto",
           }}
         >
-          {loading ? (
+          {loading && results.length === 0 ? (
             <p style={{ fontSize: 13, color: "#8b847c" }}>Loading GIFs...</p>
-          ) : error ? (
+          ) : error && results.length === 0 ? (
             <p style={{ fontSize: 13, color: "#ff8b72" }}>{error}</p>
           ) : results.length === 0 ? (
             <p style={{ fontSize: 13, color: "#8b847c" }}>
               No GIFs found. Try another search.
             </p>
           ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-                gap: 12,
-              }}
-            >
-              {results.map((gif) => (
-                <button
-                  key={gif.id}
-                  type="button"
-                  onClick={() => {
-                    onSelect(gif);
-                    onClose();
-                  }}
-                  style={{
-                    background: "#111010",
-                    border: "1px solid #242323",
-                    borderRadius: 12,
-                    padding: 0,
-                    overflow: "hidden",
-                    cursor: "pointer",
-                    textAlign: "left",
-                  }}
-                >
-                  <div
+            <>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+                  gap: 12,
+                }}
+              >
+                {results.map((gif) => (
+                  <button
+                    key={gif.id}
+                    type="button"
+                    onClick={() => {
+                      onSelect(gif);
+                      onClose();
+                    }}
                     style={{
-                      aspectRatio: "1 / 1",
-                      background: "#0d0c0c",
+                      background: "#111010",
+                      border: "1px solid #242323",
+                      borderRadius: 12,
+                      padding: 0,
+                      overflow: "hidden",
+                      cursor: "pointer",
+                      textAlign: "left",
                     }}
                   >
-                    <img
-                      src={gif.previewUrl}
-                      alt={gif.title || "GIF"}
-                      loading="lazy"
-                      decoding="async"
+                    <div
                       style={{
-                        width: "100%",
-                        height: "100%",
-                        display: "block",
-                        objectFit: "cover",
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ padding: "10px 12px" }}>
-                    <p
-                      style={{
-                        fontSize: 11.5,
-                        color: "#c8c3bc",
-                        lineHeight: 1.45,
-                        minHeight: 32,
-                        overflow: "hidden",
+                        aspectRatio: "1 / 1",
+                        background: "#0d0c0c",
                       }}
                     >
-                      {gif.title || "Untitled GIF"}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
+                      <img
+                        src={gif.previewUrl}
+                        alt={gif.title || "GIF"}
+                        loading="lazy"
+                        decoding="async"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          display: "block",
+                          objectFit: "cover",
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ padding: "10px 12px" }}>
+                      <p
+                        style={{
+                          fontSize: 11.5,
+                          color: "#c8c3bc",
+                          lineHeight: 1.45,
+                          minHeight: 32,
+                          overflow: "hidden",
+                        }}
+                      >
+                        {gif.title || "Untitled GIF"}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {loadingMore ? (
+                <p style={{ marginTop: 14, fontSize: 12.5, color: "#8b847c" }}>
+                  Loading more GIFs...
+                </p>
+              ) : null}
+
+              {error ? (
+                <p style={{ marginTop: 14, fontSize: 12.5, color: "#ff8b72" }}>
+                  {error}
+                </p>
+              ) : null}
+            </>
           )}
         </div>
       </div>
