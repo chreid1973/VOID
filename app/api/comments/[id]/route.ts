@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/auth";
+import { hasCommentContent, normalizeCommentGif } from "@/lib/commentGifs";
 
 type Params = { params: { id: string } };
 
@@ -41,14 +42,27 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     const json = await req.json();
     const body = typeof json?.body === "string" ? json.body.trim() : "";
+    const gif = normalizeCommentGif(json?.gif);
 
-    if (!body) {
-      return NextResponse.json({ error: "Comment is required" }, { status: 400 });
+    if (json?.gif != null && !gif) {
+      return NextResponse.json({ error: "Invalid GIF selection." }, { status: 400 });
+    }
+
+    if (!hasCommentContent(body, gif)) {
+      return NextResponse.json(
+        { error: "Add text or a GIF before saving your comment." },
+        { status: 400 }
+      );
     }
 
     await prisma.comment.update({
       where: { id: params.id },
-      data: { body },
+      data: {
+        body,
+        gifId: gif?.id ?? null,
+        gifUrl: gif?.url ?? null,
+        gifProvider: gif?.provider ?? null,
+      },
     });
 
     revalidateTag("post-page-content");
@@ -102,6 +116,9 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
         where: { id: params.id },
         data: {
           body: "[deleted]",
+          gifId: null,
+          gifUrl: null,
+          gifProvider: null,
           isDeleted: true,
         },
       });

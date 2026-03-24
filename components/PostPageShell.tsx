@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import "../app/(main)/feed/feed.css";
 import { ActionNotice, type ActionNoticeState } from "./ActionNotice";
+import CommentGifPreview from "./CommentGifPreview";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
 import ExternalAwareImage from "./ExternalAwareImage";
+import GiphyPicker from "./GiphyPicker";
 import MentionAutocompleteMenu from "./MentionAutocompleteMenu";
 import MentionText from "./MentionText";
 import ReportAction from "./ReportAction";
@@ -16,6 +18,8 @@ import { useMentionAutocomplete } from "./useMentionAutocomplete";
 import { useResolvedMentions } from "./useResolvedMentions";
 import { normalizePreviewImageUrl } from "../lib/previewImages";
 import { getYouTubeEmbedUrl, getYouTubeThumbnailUrl } from "../lib/youtube";
+import type { CommentGif } from "../lib/commentGifs";
+import { hasCommentContent } from "../lib/commentGifs";
 
 type CommunityItem = {
   id: string;
@@ -43,6 +47,7 @@ type RailPost = {
 type PostComment = {
   id: string;
   body: string;
+  gif: CommentGif | null;
   mentions: string[];
   score: number;
   userVote: 1 | -1 | null;
@@ -200,6 +205,20 @@ function parseCommentHash(hash: string) {
 
   const commentId = hash.slice("#comment-".length).trim();
   return commentId ? decodeURIComponent(commentId) : null;
+}
+
+function serializeCommentGif(gif: CommentGif | null) {
+  return gif
+    ? {
+        id: gif.id,
+        provider: gif.provider,
+        url: gif.url,
+        title: gif.title ?? null,
+        previewUrl: gif.previewUrl ?? null,
+        width: gif.width ?? null,
+        height: gif.height ?? null,
+      }
+    : null;
 }
 
 function getCommentAncestors(
@@ -606,6 +625,8 @@ function RightRail({
 
 function CommentComposer({ postId }: { postId: string }) {
   const [body, setBody] = useState("");
+  const [selectedGif, setSelectedGif] = useState<CommentGif | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [loading, setLoading] = useState(false);
@@ -630,7 +651,16 @@ function CommentComposer({ postId }: { postId: string }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
-    if (!body.trim()) return;
+
+    const trimmedBody = body.trim();
+
+    if (!hasCommentContent(trimmedBody, selectedGif)) {
+      setSubmitState({
+        tone: "error",
+        message: "Add text or a GIF before posting your comment.",
+      });
+      return;
+    }
 
     setLoading(true);
     setSubmitState(null);
@@ -643,7 +673,8 @@ function CommentComposer({ postId }: { postId: string }) {
         },
         body: JSON.stringify({
           postId,
-          body,
+          body: trimmedBody,
+          gif: serializeCommentGif(selectedGif),
         }),
       });
 
@@ -661,6 +692,8 @@ function CommentComposer({ postId }: { postId: string }) {
       }
 
       setBody("");
+      setSelectedGif(null);
+      setShowPreview(false);
       setSubmitState({ tone: "success", message: "Comment posted." });
       router.refresh();
     } catch {
@@ -674,144 +707,186 @@ function CommentComposer({ postId }: { postId: string }) {
   }
 
   return (
-    <div className="card" style={{ padding: "16px 20px", marginBottom: 24 }}>
-      <p style={{ fontSize: 12, color: "#484644", marginBottom: 10 }}>
-        Comment as <span style={{ color: "#6a6764", fontWeight: 600 }}>you</span>
-      </p>
+    <>
+      <div className="card" style={{ padding: "16px 20px", marginBottom: 24 }}>
+        <p style={{ fontSize: 12, color: "#484644", marginBottom: 10 }}>
+          Comment as <span style={{ color: "#6a6764", fontWeight: 600 }}>you</span>
+        </p>
 
-      <form onSubmit={handleSubmit}>
-        <textarea
-          ref={textareaRef}
-          value={body}
-          onChange={(e) => {
-            setBody(e.target.value);
-            setSelection({
-              start: e.currentTarget.selectionStart,
-              end: e.currentTarget.selectionEnd,
-            });
-            if (submitState) setSubmitState(null);
-          }}
-          onSelect={(e) => {
-            setSelection({
-              start: e.currentTarget.selectionStart,
-              end: e.currentTarget.selectionEnd,
-            });
-          }}
-          onClick={(e) => {
-            setSelection({
-              start: e.currentTarget.selectionStart,
-              end: e.currentTarget.selectionEnd,
-            });
-          }}
-          onKeyDown={mentionAutocomplete.handleKeyDown}
-          onBlur={(e) => {
-            mentionAutocomplete.closeMenu();
-            e.currentTarget.style.borderColor = "#252424";
-          }}
-          placeholder="Share your thoughts..."
-          style={{
-            width: "100%",
-            background: "#111010",
-            border: "1px solid #252424",
-            borderRadius: 8,
-            padding: "11px 14px",
-            color: "#b8b4ac",
-            fontFamily: "var(--font-outfit), sans-serif",
-            fontSize: 13.5,
-            lineHeight: 1.6,
-            resize: "vertical",
-            minHeight: 88,
-            outline: "none",
-            transition: "border-color .2s",
-          }}
-          onFocus={(e) => {
-            e.currentTarget.style.borderColor = "rgba(255,72,38,.35)";
-          }}
-        />
-
-        <MentionAutocompleteMenu
-          loading={mentionAutocomplete.loading}
-          query={mentionAutocomplete.activeQuery}
-          suggestions={mentionAutocomplete.suggestions}
-          highlightedIndex={mentionAutocomplete.highlightedIndex}
-          onSelect={mentionAutocomplete.selectSuggestion}
-        />
-
-        <MentionDraftHint text={body} />
-
-        {showPreview && body.trim() ? (
-          <div
+        <form onSubmit={handleSubmit}>
+          <textarea
+            ref={textareaRef}
+            value={body}
+            onChange={(e) => {
+              setBody(e.target.value);
+              setSelection({
+                start: e.currentTarget.selectionStart,
+                end: e.currentTarget.selectionEnd,
+              });
+              if (submitState) setSubmitState(null);
+            }}
+            onSelect={(e) => {
+              setSelection({
+                start: e.currentTarget.selectionStart,
+                end: e.currentTarget.selectionEnd,
+              });
+            }}
+            onClick={(e) => {
+              setSelection({
+                start: e.currentTarget.selectionStart,
+                end: e.currentTarget.selectionEnd,
+              });
+            }}
+            onKeyDown={mentionAutocomplete.handleKeyDown}
+            onBlur={(e) => {
+              mentionAutocomplete.closeMenu();
+              e.currentTarget.style.borderColor = "#252424";
+            }}
+            placeholder="Share your thoughts..."
             style={{
-              marginTop: 10,
-              padding: "12px 14px",
+              width: "100%",
+              background: "#111010",
               border: "1px solid #252424",
               borderRadius: 8,
-              background: "#141313",
-              fontSize: 13.5,
-              lineHeight: 1.7,
-              color: "#c7c2bb",
-              whiteSpace: "pre-wrap",
-            }}
-          >
-            <MentionText text={body} mentions={resolvedMentions} />
-          </div>
-        ) : null}
-
-        {submitState ? (
-          <p
-            aria-live="polite"
-            style={{
-              fontSize: 12,
-              marginTop: 10,
-              color:
-                submitState.tone === "success" ? "#8aa37f" : "#ff8b72",
-            }}
-          >
-            {submitState.tone === "success" ? "✓ " : ""}
-            {submitState.message}
-          </p>
-        ) : null}
-
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            marginTop: 10,
-            gap: 8,
-          }}
-        >
-          <button
-            className="act"
-            type="button"
-            onClick={() => setShowPreview((current) => !current)}
-            style={{ border: "1px solid #242323", borderRadius: 7 }}
-          >
-            {showPreview ? "Hide Preview" : "Preview"}
-          </button>
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              background: "#ff4826",
-              border: "none",
-              borderRadius: 8,
-              color: "#fff",
+              padding: "11px 14px",
+              color: "#b8b4ac",
               fontFamily: "var(--font-outfit), sans-serif",
-              fontSize: 13,
-              fontWeight: 600,
-              padding: "7px 18px",
-              cursor: loading ? "not-allowed" : "pointer",
-              transition: "opacity .15s",
-              letterSpacing: ".02em",
-              opacity: loading ? 0.7 : 1,
+              fontSize: 13.5,
+              lineHeight: 1.6,
+              resize: "vertical",
+              minHeight: 88,
+              outline: "none",
+              transition: "border-color .2s",
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = "rgba(255,72,38,.35)";
+            }}
+          />
+
+          <MentionAutocompleteMenu
+            loading={mentionAutocomplete.loading}
+            query={mentionAutocomplete.activeQuery}
+            suggestions={mentionAutocomplete.suggestions}
+            highlightedIndex={mentionAutocomplete.highlightedIndex}
+            onSelect={mentionAutocomplete.selectSuggestion}
+          />
+
+          <MentionDraftHint text={body} />
+
+          {selectedGif ? (
+            <CommentGifPreview
+              gif={selectedGif}
+              onRemove={() => setSelectedGif(null)}
+            />
+          ) : null}
+
+          {showPreview && hasCommentContent(body, selectedGif) ? (
+            <div
+              style={{
+                marginTop: 10,
+                padding: "12px 14px",
+                border: "1px solid #252424",
+                borderRadius: 8,
+                background: "#141313",
+                display: "grid",
+                gap: 10,
+              }}
+            >
+              {body.trim() ? (
+                <div
+                  style={{
+                    fontSize: 13.5,
+                    lineHeight: 1.7,
+                    color: "#c7c2bb",
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  <MentionText text={body} mentions={resolvedMentions} />
+                </div>
+              ) : null}
+
+              {selectedGif ? <CommentGifPreview gif={selectedGif} /> : null}
+            </div>
+          ) : null}
+
+          {submitState ? (
+            <p
+              aria-live="polite"
+              style={{
+                fontSize: 12,
+                marginTop: 10,
+                color:
+                  submitState.tone === "success" ? "#8aa37f" : "#ff8b72",
+              }}
+            >
+              {submitState.tone === "success" ? "✓ " : ""}
+              {submitState.message}
+            </p>
+          ) : null}
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginTop: 10,
+              gap: 8,
+              flexWrap: "wrap",
             }}
           >
-            {loading ? "Posting..." : "Post Comment"}
-          </button>
-        </div>
-      </form>
-    </div>
+            <button
+              className="act"
+              type="button"
+              onClick={() => {
+                setPickerOpen(true);
+                if (submitState) setSubmitState(null);
+              }}
+              style={{ border: "1px solid #242323", borderRadius: 7 }}
+            >
+              {selectedGif ? "Change GIF" : "GIF"}
+            </button>
+
+            <button
+              className="act"
+              type="button"
+              onClick={() => setShowPreview((current) => !current)}
+              style={{ border: "1px solid #242323", borderRadius: 7 }}
+            >
+              {showPreview ? "Hide Preview" : "Preview"}
+            </button>
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                background: "#ff4826",
+                border: "none",
+                borderRadius: 8,
+                color: "#fff",
+                fontFamily: "var(--font-outfit), sans-serif",
+                fontSize: 13,
+                fontWeight: 600,
+                padding: "7px 18px",
+                cursor: loading ? "not-allowed" : "pointer",
+                transition: "opacity .15s",
+                letterSpacing: ".02em",
+                opacity: loading ? 0.7 : 1,
+              }}
+            >
+              {loading ? "Posting..." : "Post Comment"}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <GiphyPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(gif) => {
+          setSelectedGif(gif);
+          if (submitState) setSubmitState(null);
+        }}
+      />
+    </>
   );
 }
 
@@ -825,6 +900,8 @@ function ReplyComposer({
   onCancel: () => void;
 }) {
   const [body, setBody] = useState("");
+  const [selectedGif, setSelectedGif] = useState<CommentGif | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [loading, setLoading] = useState(false);
@@ -849,7 +926,16 @@ function ReplyComposer({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
-    if (!body.trim()) return;
+
+    const trimmedBody = body.trim();
+
+    if (!hasCommentContent(trimmedBody, selectedGif)) {
+      setSubmitState({
+        tone: "error",
+        message: "Add text or a GIF before posting your reply.",
+      });
+      return;
+    }
 
     setLoading(true);
     setSubmitState(null);
@@ -863,7 +949,8 @@ function ReplyComposer({
         body: JSON.stringify({
           postId,
           parentId,
-          body,
+          body: trimmedBody,
+          gif: serializeCommentGif(selectedGif),
         }),
       });
 
@@ -881,6 +968,8 @@ function ReplyComposer({
       }
 
       setBody("");
+      setSelectedGif(null);
+      setShowPreview(false);
       setSubmitState({ tone: "success", message: "Reply posted." });
       router.refresh();
     } catch {
@@ -958,7 +1047,15 @@ function ReplyComposer({
 
       <MentionDraftHint text={body} compact />
 
-      {showPreview && body.trim() ? (
+      {selectedGif ? (
+        <CommentGifPreview
+          gif={selectedGif}
+          compact
+          onRemove={() => setSelectedGif(null)}
+        />
+      ) : null}
+
+      {showPreview && hasCommentContent(body, selectedGif) ? (
         <div
           style={{
             marginTop: 8,
@@ -966,13 +1063,24 @@ function ReplyComposer({
             border: "1px solid #252424",
             borderRadius: 8,
             background: "#141313",
-            fontSize: 12.5,
-            lineHeight: 1.7,
-            color: "#c7c2bb",
-            whiteSpace: "pre-wrap",
+            display: "grid",
+            gap: 8,
           }}
         >
-          <MentionText text={body} mentions={resolvedMentions} />
+          {body.trim() ? (
+            <div
+              style={{
+                fontSize: 12.5,
+                lineHeight: 1.7,
+                color: "#c7c2bb",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              <MentionText text={body} mentions={resolvedMentions} />
+            </div>
+          ) : null}
+
+          {selectedGif ? <CommentGifPreview gif={selectedGif} compact /> : null}
         </div>
       ) : null}
 
@@ -996,8 +1104,21 @@ function ReplyComposer({
           justifyContent: "flex-end",
           gap: 8,
           marginTop: 8,
+          flexWrap: "wrap",
         }}
       >
+        <button
+          className="act"
+          type="button"
+          onClick={() => {
+            setPickerOpen(true);
+            if (submitState) setSubmitState(null);
+          }}
+          style={{ border: "1px solid #242323", borderRadius: 7 }}
+        >
+          {selectedGif ? "Change GIF" : "GIF"}
+        </button>
+
         <button
           className="act"
           type="button"
@@ -1037,6 +1158,14 @@ function ReplyComposer({
           {loading ? "Posting..." : "Reply"}
         </button>
       </div>
+      <GiphyPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(gif) => {
+          setSelectedGif(gif);
+          if (submitState) setSubmitState(null);
+        }}
+      />
     </form>
   );
 }
@@ -1075,6 +1204,8 @@ const CommentNode = memo(function CommentNode({
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [editBody, setEditBody] = useState(comment.body);
+  const [editGif, setEditGif] = useState<CommentGif | null>(comment.gif);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [editWindowExpired, setEditWindowExpired] = useState(
@@ -1148,10 +1279,10 @@ const CommentNode = memo(function CommentNode({
 
     const body = editBody.trim();
 
-    if (!body) {
+    if (!hasCommentContent(body, editGif)) {
       onActionNotice({
         tone: "error",
-        message: "Comment is required.",
+        message: "Add text or a GIF before saving your comment.",
       });
       return;
     }
@@ -1164,7 +1295,10 @@ const CommentNode = memo(function CommentNode({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ body }),
+        body: JSON.stringify({
+          body,
+          gif: serializeCommentGif(editGif),
+        }),
       });
       const data = await res.json().catch(() => null);
 
@@ -1176,6 +1310,7 @@ const CommentNode = memo(function CommentNode({
         return;
       }
 
+      setPickerOpen(false);
       setIsEditing(false);
       onActionNotice({
         tone: "success",
@@ -1212,6 +1347,7 @@ const CommentNode = memo(function CommentNode({
       }
 
       onCancelReply();
+      setPickerOpen(false);
       setIsEditing(false);
       onActionNotice({
         tone: "success",
@@ -1314,19 +1450,38 @@ const CommentNode = memo(function CommentNode({
             }}
           />
 
+          {editGif ? (
+            <CommentGifPreview
+              gif={editGif}
+              compact={isReply}
+              onRemove={() => setEditGif(null)}
+            />
+          ) : null}
+
           <div
             style={{
               display: "flex",
               alignItems: "center",
               gap: 0,
+              flexWrap: "wrap",
             }}
           >
             <button
               className="act"
               style={{ fontSize: 11.5 }}
               type="button"
+              onClick={() => setPickerOpen(true)}
+            >
+              {editGif ? "Change GIF" : "GIF"}
+            </button>
+            <button
+              className="act"
+              style={{ fontSize: 11.5 }}
+              type="button"
               onClick={() => {
                 setEditBody(comment.body);
+                setEditGif(comment.gif);
+                setPickerOpen(false);
                 setIsEditing(false);
               }}
             >
@@ -1351,18 +1506,25 @@ const CommentNode = memo(function CommentNode({
               </button>
             ) : null}
           </div>
+
+          <GiphyPicker
+            open={pickerOpen}
+            onClose={() => setPickerOpen(false)}
+            onSelect={(gif) => setEditGif(gif)}
+          />
         </form>
       ) : (
         <>
-          <p
-            style={{
-              fontSize: isReply ? 12.5 : 13.5,
-              lineHeight: isReply ? 1.65 : 1.67,
-              color: "#9c9892",
-              marginBottom: 7,
-              whiteSpace: "pre-wrap",
-            }}
-          >
+          {comment.isDeleted || comment.isHidden || comment.body ? (
+            <p
+              style={{
+                fontSize: isReply ? 12.5 : 13.5,
+                lineHeight: isReply ? 1.65 : 1.67,
+                color: "#9c9892",
+                marginBottom: comment.gif && !comment.isDeleted && !comment.isHidden ? 10 : 7,
+                whiteSpace: "pre-wrap",
+              }}
+            >
               {comment.isDeleted ? (
                 "[deleted]"
               ) : comment.isHidden ? (
@@ -1371,6 +1533,13 @@ const CommentNode = memo(function CommentNode({
                 <MentionText text={comment.body} mentions={comment.mentions} />
               )}
             </p>
+          ) : null}
+
+          {!comment.isDeleted && !comment.isHidden && comment.gif ? (
+            <div style={{ marginBottom: 8 }}>
+              <CommentGifPreview gif={comment.gif} compact={isReply} />
+            </div>
+          ) : null}
 
           <div
             style={{
@@ -1437,6 +1606,8 @@ const CommentNode = memo(function CommentNode({
                 onClick={() => {
                   onCancelReply();
                   setEditBody(comment.body);
+                  setEditGif(comment.gif);
+                  setPickerOpen(false);
                   setIsEditing(true);
                 }}
               >

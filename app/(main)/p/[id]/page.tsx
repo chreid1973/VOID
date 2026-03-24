@@ -8,6 +8,7 @@ import { loadTrendingRailPosts } from "../../../../lib/trendingRail";
 import PostPageShell from "../../../../components/PostPageShell";
 import { resolveStoredImageUrl } from "../../../../r2";
 import { filterMentionUsernames, loadExistingMentionUsernames } from "../../../../lib/mentions";
+import { buildStoredCommentGif } from "../../../../lib/commentGifs";
 import {
   SITE_NAME,
   buildFallbackPostShareImageUrl,
@@ -71,6 +72,11 @@ type LoadedComment = {
   id: string;
   parentId: string | null;
   body: string;
+  gif: {
+    id: string;
+    provider: "GIPHY";
+    url: string;
+  } | null;
   mentions: string[];
   score: number;
   userVote: 1 | -1 | null;
@@ -380,6 +386,11 @@ export default async function PostPage({
         id: comment.id,
         parentId: comment.parentId,
         body: comment.body,
+        gif: buildStoredCommentGif(
+          comment.gifId,
+          comment.gifUrl,
+          comment.gifProvider
+        ),
         mentions: filterMentionUsernames(comment.body, validMentionSet),
         score: comment.score,
         userVote: formatUserVote(commentVoteMap.get(comment.id)),

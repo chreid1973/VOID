@@ -14,34 +14,34 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  clerkId      String    @unique
-  username     String    @unique
-  displayName  String?
+  id                   String              @id @default(cuid())
+  clerkId              String              @unique
+  username             String              @unique
+  displayName          String?
   displayNameUpdatedAt DateTime?
-  bio          String?
-  avatarUrl    String?
-  defaultFeedScope FeedPreferenceScope @default(HOME)
-  defaultFeedSort FeedPreferenceSort @default(HOT)
-  isAdmin      Boolean   @default(false)
-  karmaPost    Int       @default(0)
-  karmaComment Int       @default(0)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  bio                  String?
+  avatarUrl            String?
+  defaultFeedScope     FeedPreferenceScope @default(HOME)
+  defaultFeedSort      FeedPreferenceSort  @default(HOT)
+  isAdmin              Boolean             @default(false)
+  karmaPost            Int                 @default(0)
+  karmaComment         Int                 @default(0)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
 
-  posts           Post[]
-  comments        Comment[]
-  votes           Vote[]
-  postSaves       SavedPost[]
-  memberships     CommunityMember[]
-  reportsFiled    Report[] @relation("ReportsFiled")
-  reportsResolved Report[] @relation("ReportsResolved")
-  moderationReceived ModerationAction[] @relation("ModerationActionsReceived")
-  moderationIssued   ModerationAction[] @relation("ModerationActionsIssued")
-  following         UserFollow[] @relation("UserFollowing")
-  followers         UserFollow[] @relation("UserFollowers")
-  notificationsReceived Notification[] @relation("NotificationsReceived")
-  notificationsSent     Notification[] @relation("NotificationsSent")
+  posts                 Post[]
+  comments              Comment[]
+  votes                 Vote[]
+  postSaves             SavedPost[]
+  memberships           CommunityMember[]
+  reportsFiled          Report[]           @relation("ReportsFiled")
+  reportsResolved       Report[]           @relation("ReportsResolved")
+  moderationReceived    ModerationAction[] @relation("ModerationActionsReceived")
+  moderationIssued      ModerationAction[] @relation("ModerationActionsIssued")
+  following             UserFollow[]       @relation("UserFollowing")
+  followers             UserFollow[]       @relation("UserFollowers")
+  notificationsReceived Notification[]     @relation("NotificationsReceived")
+  notificationsSent     Notification[]     @relation("NotificationsSent")
 
   @@index([clerkId])
   @@index([username])
@@ -116,19 +116,19 @@ model Post {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  authorId    String
-  communityId String
+  authorId          String
+  communityId       String
   crosspostOfPostId String?
 
-  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  comments  Comment[]
-  votes     Vote[]
-  saves     SavedPost[]
-  reports   Report[]
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  community     Community      @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  comments      Comment[]
+  votes         Vote[]
+  saves         SavedPost[]
+  reports       Report[]
   notifications Notification[]
-  crosspostOf Post?   @relation("Crossposts", fields: [crosspostOfPostId], references: [id], onDelete: SetNull)
-  crossposts Post[]   @relation("Crossposts")
+  crosspostOf   Post?          @relation("Crossposts", fields: [crosspostOfPostId], references: [id], onDelete: SetNull)
+  crossposts    Post[]         @relation("Crossposts")
 
   @@index([communityId, createdAt(sort: Desc)])
   @@index([score(sort: Desc)])
@@ -144,24 +144,27 @@ enum PostType {
 }
 
 model Comment {
-  id        String   @id @default(cuid())
-  body      String
-  score     Int      @default(0)
-  isHidden  Boolean  @default(false)
-  isDeleted Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  body        String
+  gifId       String?
+  gifUrl      String?
+  gifProvider String?
+  score       Int      @default(0)
+  isHidden    Boolean  @default(false)
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   authorId String
   postId   String
   parentId String?
 
-  author  User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  post    Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  parent  Comment?  @relation("Replies", fields: [parentId], references: [id])
-  replies Comment[] @relation("Replies")
-  votes   Vote[]
-  reports Report[]
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post          Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parent        Comment?       @relation("Replies", fields: [parentId], references: [id])
+  replies       Comment[]      @relation("Replies")
+  votes         Vote[]
+  reports       Report[]
   notifications Notification[]
 
   @@index([postId, createdAt])
@@ -216,23 +219,23 @@ model UserFollow {
 }
 
 model Report {
-  id          String           @id @default(cuid())
-  targetType  ReportTargetType
-  reason      ReportReason
-  note        String?
-  status      ReportStatus     @default(OPEN)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  resolvedAt  DateTime?
-  reporterId  String
+  id           String           @id @default(cuid())
+  targetType   ReportTargetType
+  reason       ReportReason
+  note         String?
+  status       ReportStatus     @default(OPEN)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  resolvedAt   DateTime?
+  reporterId   String
   resolvedById String?
-  postId      String?
-  commentId   String?
+  postId       String?
+  commentId    String?
 
-  reporter   User     @relation("ReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
-  resolvedBy User?    @relation("ReportsResolved", fields: [resolvedById], references: [id], onDelete: SetNull)
-  post       Post?    @relation(fields: [postId], references: [id], onDelete: SetNull)
-  comment    Comment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  reporter          User               @relation("ReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolvedBy        User?              @relation("ReportsResolved", fields: [resolvedById], references: [id], onDelete: SetNull)
+  post              Post?              @relation(fields: [postId], references: [id], onDelete: SetNull)
+  comment           Comment?           @relation(fields: [commentId], references: [id], onDelete: SetNull)
   moderationActions ModerationAction[]
 
   @@index([status, createdAt])
@@ -250,8 +253,8 @@ model ModerationAction {
   adminId   String
   reportId  String?
 
-  user   User   @relation("ModerationActionsReceived", fields: [userId], references: [id], onDelete: Cascade)
-  admin  User   @relation("ModerationActionsIssued", fields: [adminId], references: [id], onDelete: Cascade)
+  user   User    @relation("ModerationActionsReceived", fields: [userId], references: [id], onDelete: Cascade)
+  admin  User    @relation("ModerationActionsIssued", fields: [adminId], references: [id], onDelete: Cascade)
   report Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])

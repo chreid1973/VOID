@@ -1,0 +1,4 @@
+ALTER TABLE "Comment"
+ADD COLUMN "gifId" TEXT,
+ADD COLUMN "gifUrl" TEXT,
+ADD COLUMN "gifProvider" TEXT;

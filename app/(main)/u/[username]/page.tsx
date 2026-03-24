@@ -193,6 +193,9 @@ export default async function UserProfilePage({
       select: {
         id: true,
         body: true,
+        gifId: true,
+        gifUrl: true,
+        gifProvider: true,
         createdAt: true,
         post: {
           select: {
@@ -756,7 +759,7 @@ export default async function UserProfilePage({
                   {comments.map((comment) => (
                     <Link
                       key={comment.id}
-                      href={`/p/${comment.post.publicId}`}
+                      href={`/p/${comment.post.publicId}#comment-${comment.id}`}
                       style={{
                         display: "block",
                         textDecoration: "none",
@@ -776,7 +779,12 @@ export default async function UserProfilePage({
                           color: "#c0bbb4",
                         }}
                       >
-                        {snippet(comment.body)}
+                        {snippet(
+                          comment.body ||
+                            (comment.gifId && comment.gifUrl && comment.gifProvider
+                              ? "[GIF]"
+                              : "")
+                        )}
                       </p>
                     </Link>
                   ))}

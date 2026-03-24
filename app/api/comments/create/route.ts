@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { revalidateTag } from "next/cache";
 import { prisma } from "../../../../lib/prisma";
 import { createCommentNotifications } from "../../../../lib/notifications";
+import { hasCommentContent, normalizeCommentGif } from "../../../../lib/commentGifs";
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -12,22 +13,38 @@ export async function POST(req: Request) {
   }
 
   const json = await req.json();
-  const { postId, body, parentId } = json as {
+  const { postId, body, parentId, gif } = json as {
     postId?: string;
     body?: string;
     parentId?: string | null;
+    gif?: unknown;
   };
 
-  if (!postId?.trim() || !body?.trim()) {
+  if (!postId?.trim()) {
     return NextResponse.json(
-      { error: "Post ID and comment body are required." },
+      { error: "Post ID is required." },
       { status: 400 }
     );
   }
 
   const trimmedPostId = postId.trim();
-  const trimmedBody = body.trim();
+  const trimmedBody = typeof body === "string" ? body.trim() : "";
   const trimmedParentId = parentId?.trim() || null;
+  const normalizedGif = normalizeCommentGif(gif);
+
+  if (gif != null && !normalizedGif) {
+    return NextResponse.json(
+      { error: "Invalid GIF selection." },
+      { status: 400 }
+    );
+  }
+
+  if (!hasCommentContent(trimmedBody, normalizedGif)) {
+    return NextResponse.json(
+      { error: "Add text or a GIF before posting your comment." },
+      { status: 400 }
+    );
+  }
 
   let user = await prisma.user.findUnique({
     where: { clerkId: userId },
@@ -75,6 +92,9 @@ export async function POST(req: Request) {
     const comment = await tx.comment.create({
       data: {
         body: trimmedBody,
+        gifId: normalizedGif?.id ?? null,
+        gifUrl: normalizedGif?.url ?? null,
+        gifProvider: normalizedGif?.provider ?? null,
         postId: trimmedPostId,
         authorId: user.id,
         parentId: trimmedParentId,
