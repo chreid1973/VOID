@@ -627,7 +627,6 @@ function CommentComposer({ postId }: { postId: string }) {
   const [body, setBody] = useState("");
   const [selectedGif, setSelectedGif] = useState<CommentGif | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [loading, setLoading] = useState(false);
   const [submitState, setSubmitState] = useState<{
@@ -693,7 +692,6 @@ function CommentComposer({ postId }: { postId: string }) {
 
       setBody("");
       setSelectedGif(null);
-      setShowPreview(false);
       setSubmitState({ tone: "success", message: "Comment posted." });
       router.refresh();
     } catch {
@@ -780,35 +778,6 @@ function CommentComposer({ postId }: { postId: string }) {
             />
           ) : null}
 
-          {showPreview && hasCommentContent(body, selectedGif) ? (
-            <div
-              style={{
-                marginTop: 10,
-                padding: "12px 14px",
-                border: "1px solid #252424",
-                borderRadius: 8,
-                background: "#141313",
-                display: "grid",
-                gap: 10,
-              }}
-            >
-              {body.trim() ? (
-                <div
-                  style={{
-                    fontSize: 13.5,
-                    lineHeight: 1.7,
-                    color: "#c7c2bb",
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
-                  <MentionText text={body} mentions={resolvedMentions} />
-                </div>
-              ) : null}
-
-              {selectedGif ? <CommentGifPreview gif={selectedGif} /> : null}
-            </div>
-          ) : null}
-
           {submitState ? (
             <p
               aria-live="polite"
@@ -843,15 +812,6 @@ function CommentComposer({ postId }: { postId: string }) {
               style={{ border: "1px solid #242323", borderRadius: 7 }}
             >
               {selectedGif ? "Change GIF" : "GIF"}
-            </button>
-
-            <button
-              className="act"
-              type="button"
-              onClick={() => setShowPreview((current) => !current)}
-              style={{ border: "1px solid #242323", borderRadius: 7 }}
-            >
-              {showPreview ? "Hide Preview" : "Preview"}
             </button>
 
             <button
@@ -902,7 +862,6 @@ function ReplyComposer({
   const [body, setBody] = useState("");
   const [selectedGif, setSelectedGif] = useState<CommentGif | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [loading, setLoading] = useState(false);
   const [submitState, setSubmitState] = useState<{
@@ -969,7 +928,6 @@ function ReplyComposer({
 
       setBody("");
       setSelectedGif(null);
-      setShowPreview(false);
       setSubmitState({ tone: "success", message: "Reply posted." });
       router.refresh();
     } catch {
@@ -1055,35 +1013,6 @@ function ReplyComposer({
         />
       ) : null}
 
-      {showPreview && hasCommentContent(body, selectedGif) ? (
-        <div
-          style={{
-            marginTop: 8,
-            padding: "10px 12px",
-            border: "1px solid #252424",
-            borderRadius: 8,
-            background: "#141313",
-            display: "grid",
-            gap: 8,
-          }}
-        >
-          {body.trim() ? (
-            <div
-              style={{
-                fontSize: 12.5,
-                lineHeight: 1.7,
-                color: "#c7c2bb",
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              <MentionText text={body} mentions={resolvedMentions} />
-            </div>
-          ) : null}
-
-          {selectedGif ? <CommentGifPreview gif={selectedGif} compact /> : null}
-        </div>
-      ) : null}
-
       {submitState ? (
         <p
           aria-live="polite"
@@ -1117,15 +1046,6 @@ function ReplyComposer({
           style={{ border: "1px solid #242323", borderRadius: 7 }}
         >
           {selectedGif ? "Change GIF" : "GIF"}
-        </button>
-
-        <button
-          className="act"
-          type="button"
-          onClick={() => setShowPreview((current) => !current)}
-          style={{ border: "1px solid #242323", borderRadius: 7 }}
-        >
-          {showPreview ? "Hide Preview" : "Preview"}
         </button>
 
         <button
