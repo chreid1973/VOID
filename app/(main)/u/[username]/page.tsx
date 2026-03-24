@@ -633,6 +633,7 @@ export default async function UserProfilePage({
                       commentsPage,
                       savedPage
                     )}
+                    replace
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
