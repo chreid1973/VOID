@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import GlobalSearchBox from "./GlobalSearchBox";
 import IntentPrefetchLink from "./IntentPrefetchLink";
@@ -160,12 +161,40 @@ export function CommunityBadge({
 }
 
 export function FeedTopBar(props: FeedTopBarProps) {
+  const [unreadCount, setUnreadCount] = useState(props.notificationUnreadCount);
   const sortOptions = [
     ["🔥", "hot", "Hot"],
     ["✦", "new", "New"],
     ["▲", "top", "Top"],
     ["↑", "rising", "Rising"],
   ] as const;
+
+  useEffect(() => {
+    setUnreadCount(props.notificationUnreadCount);
+  }, [props.notificationUnreadCount]);
+
+  useEffect(() => {
+    if (!props.currentUser) {
+      setUnreadCount(0);
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetch("/api/notifications/unread-count", {
+      cache: "no-store",
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (cancelled || typeof data?.count !== "number") return;
+        setUnreadCount(data.count);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [props.currentUser?.username]);
 
   return (
     <header className="feed-topbar">
@@ -327,13 +356,13 @@ export function FeedTopBar(props: FeedTopBarProps) {
                 textAlign: "center",
               }}
               title={
-                props.notificationUnreadCount > 0
-                  ? `${props.notificationUnreadCount} unread notifications`
+                unreadCount > 0
+                  ? `${unreadCount} unread notifications`
                   : "Notifications"
               }
             >
               🔔
-              {props.notificationUnreadCount > 0 ? (
+              {unreadCount > 0 ? (
                 <span
                   style={{
                     position: "absolute",
@@ -351,9 +380,9 @@ export function FeedTopBar(props: FeedTopBarProps) {
                     boxShadow: "0 2px 10px rgba(255,72,38,.28)",
                   }}
                 >
-                  {props.notificationUnreadCount > 99
+                  {unreadCount > 99
                     ? "99+"
-                    : props.notificationUnreadCount}
+                    : unreadCount}
                 </span>
               ) : null}
             </Link>

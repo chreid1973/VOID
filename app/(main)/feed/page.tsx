@@ -483,19 +483,39 @@ export default async function FeedPage({
   const initialSort = parseSort(rawSort);
   const currentPage = parsePage(rawPage);
   const hasPreviousPage = currentPage > 1;
+  const shouldLoadHomeMemberships =
+    Boolean(user) && !initialSelectedCommunity && initialScope === "home";
+  const shouldLoadSelectedCommunityMembership =
+    Boolean(user) && Boolean(initialSelectedCommunity);
+  const shouldLoadFollowingIds = Boolean(user) && initialScope === "following";
 
   const [memberships, follows] = await Promise.all([
-    user
+    shouldLoadHomeMemberships
       ? prisma.communityMember.findMany({
-          where: { userId: user.id },
+          where: { userId: user!.id },
           select: {
             communityId: true,
           },
         })
+      : shouldLoadSelectedCommunityMembership
+        ? prisma.communityMember.findMany({
+            where: {
+              userId: user!.id,
+              community: {
+                name: {
+                  equals: initialSelectedCommunity!,
+                  mode: "insensitive",
+                },
+              },
+            },
+            select: {
+              communityId: true,
+            },
+          })
       : Promise.resolve([]),
-    user
+    shouldLoadFollowingIds
       ? prisma.userFollow.findMany({
-          where: { followerId: user.id },
+          where: { followerId: user!.id },
           select: {
             followingId: true,
           },
@@ -513,7 +533,7 @@ export default async function FeedPage({
     initialScope === "home" &&
     joinedCommunityIds.length > 0;
 
-  const [feedBase, communities, trendingRailPosts, unreadNotificationCount] =
+  const [feedBase, communities, trendingRailPosts] =
     await Promise.all([
       shouldUseCachedPublicFeedBase(
         initialSelectedCommunity,
@@ -548,14 +568,6 @@ export default async function FeedPage({
             }),
       loadCommunityNavigationItems(),
       loadTrendingRailPosts(5),
-      user
-        ? prisma.notification.count({
-            where: {
-              userId: user.id,
-              readAt: null,
-            },
-          })
-        : Promise.resolve(0),
     ]);
 
   const [postVotes, savedPosts] =
@@ -625,7 +637,7 @@ export default async function FeedPage({
       isPersonalizedHome={isPersonalizedHome}
       followedAuthorCount={followedAuthorIds.length}
       railPosts={formattedRailPosts}
-      notificationUnreadCount={unreadNotificationCount}
+      notificationUnreadCount={0}
       currentUser={
         user
           ? {

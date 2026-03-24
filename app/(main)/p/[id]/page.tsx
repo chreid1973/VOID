@@ -291,7 +291,7 @@ export default async function PostPage({
   if (params.id !== post.publicId) {
     permanentRedirect(`/p/${post.publicId}?from=${encodeURIComponent(backHref)}`);
   }
-  const [postVote, commentVotes, savedPost, unreadNotificationCount] = user
+  const [postVote, commentVotes, savedPost] = user
     ? await Promise.all([
         prisma.vote.findUnique({
           where: {
@@ -327,14 +327,8 @@ export default async function PostPage({
             id: true,
           },
         }),
-        prisma.notification.count({
-          where: {
-            userId: user.id,
-            readAt: null,
-          },
-        }),
       ])
-    : [null, [], null, 0];
+    : [null, [], null];
   const commentVoteMap = new Map(
     commentVotes.map((vote) => [vote.commentId as string, vote.value])
   );
@@ -436,7 +430,7 @@ export default async function PostPage({
       railPosts={formattedRailPosts}
       backHref={backHref}
       renderedAt={renderedAt}
-      notificationUnreadCount={unreadNotificationCount}
+      notificationUnreadCount={0}
       currentUser={
         user
           ? {

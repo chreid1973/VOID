@@ -3,7 +3,6 @@ import { getAuthState } from "../../../auth";
 import SearchPageShell from "../../../components/SearchPageShell";
 import { loadCommunityNavigationItems } from "../../../lib/communityNav";
 import { searchEverything } from "../../../lib/search";
-import { prisma } from "../../../lib/prisma";
 import { resolveStoredImageUrl } from "../../../r2";
 
 function firstParam(value?: string | string[]) {
@@ -25,35 +24,14 @@ export default async function SearchPage({
 
   const initialQuery = firstParam(searchParams?.q)?.trim() || "";
 
-  const [memberships, communities, notificationUnreadCount, results] =
-    await Promise.all([
-      user
-        ? prisma.communityMember.findMany({
-            where: { userId: user.id },
-            select: {
-              communityId: true,
-            },
-          })
-        : Promise.resolve([]),
-      loadCommunityNavigationItems(),
-      user
-        ? prisma.notification.count({
-            where: {
-              userId: user.id,
-              readAt: null,
-            },
-          })
-        : Promise.resolve(0),
-      searchEverything(initialQuery, {
-        users: 10,
-        communities: 8,
-        posts: 18,
-      }),
-    ]);
-
-  const joinedCommunityIdSet = new Set(
-    memberships.map((membership) => membership.communityId)
-  );
+  const [communities, results] = await Promise.all([
+    loadCommunityNavigationItems(),
+    searchEverything(initialQuery, {
+      users: 10,
+      communities: 8,
+      posts: 18,
+    }),
+  ]);
 
   const formattedCommunities = communities.map((community) => ({
     id: community.id,
@@ -63,7 +41,7 @@ export default async function SearchPage({
     icon: community.icon,
     memberCount: community.memberCount,
     postCount: community.postCount,
-    isMember: joinedCommunityIdSet.has(community.id),
+    isMember: false,
   }));
 
   const formattedResults = {
@@ -81,7 +59,7 @@ export default async function SearchPage({
       initialQuery={initialQuery}
       results={formattedResults}
       communities={formattedCommunities}
-      notificationUnreadCount={notificationUnreadCount}
+      notificationUnreadCount={0}
       currentUser={
         user
           ? {
