@@ -928,7 +928,8 @@ function ReplyComposer({
 
       setBody("");
       setSelectedGif(null);
-      setSubmitState({ tone: "success", message: "Reply posted." });
+      setSubmitState(null);
+      onCancel();
       router.refresh();
     } catch {
       setSubmitState({
