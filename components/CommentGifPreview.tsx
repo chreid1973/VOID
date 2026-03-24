@@ -11,6 +11,8 @@ export default function CommentGifPreview({
   onRemove?: () => void;
   compact?: boolean;
 }) {
+  const showMeta = Boolean(onRemove);
+
   return (
     <div
       style={{
@@ -21,45 +23,45 @@ export default function CommentGifPreview({
         overflow: "hidden",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-          padding: compact ? "9px 10px" : "10px 12px",
-          borderBottom: "1px solid #222121",
-        }}
-      >
-        <div style={{ minWidth: 0 }}>
-          <p
-            style={{
-              fontSize: 11,
-              color: "#8b847c",
-              textTransform: "uppercase",
-              letterSpacing: ".08em",
-              marginBottom: 3,
-            }}
-          >
-            GIF
-          </p>
-          <p
-            style={{
-              fontSize: compact ? 11.5 : 12,
-              color: "#c8c3bc",
-              lineHeight: 1.4,
-            }}
-          >
-            {gif.title || "Selected GIF"}
-          </p>
-        </div>
+      {showMeta ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            padding: compact ? "9px 10px" : "10px 12px",
+            borderBottom: "1px solid #222121",
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <p
+              style={{
+                fontSize: 11,
+                color: "#8b847c",
+                textTransform: "uppercase",
+                letterSpacing: ".08em",
+                marginBottom: 3,
+              }}
+            >
+              GIF
+            </p>
+            <p
+              style={{
+                fontSize: compact ? 11.5 : 12,
+                color: "#c8c3bc",
+                lineHeight: 1.4,
+              }}
+            >
+              {gif.title || "Selected GIF"}
+            </p>
+          </div>
 
-        {onRemove ? (
           <button className="act" type="button" onClick={onRemove}>
             Remove
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       <div
         style={{
