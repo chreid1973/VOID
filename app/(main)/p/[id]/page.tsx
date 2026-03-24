@@ -4,7 +4,6 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { getCurrentUser, isAdminUser } from "../../../../auth";
 import { prisma } from "../../../../lib/prisma";
 import { loadCommunityNavigationItems } from "../../../../lib/communityNav";
-import { loadTrendingRailPosts } from "../../../../lib/trendingRail";
 import PostPageShell from "../../../../components/PostPageShell";
 import { resolveStoredImageUrl } from "../../../../r2";
 import { filterMentionUsernames, loadExistingMentionUsernames } from "../../../../lib/mentions";
@@ -168,7 +167,7 @@ async function loadPostPageBase(id: string, includeHidden = false) {
     return null;
   }
 
-  const [comments, communities, railPosts] = await Promise.all([
+  const [comments, communities] = await Promise.all([
     prisma.comment.findMany({
       where: {
         postId: post.id,
@@ -186,7 +185,6 @@ async function loadPostPageBase(id: string, includeHidden = false) {
       },
     }),
     loadCommunityNavigationItems(),
-    loadTrendingRailPosts(5, post.id),
   ]);
 
   const validMentionUsernames = await loadExistingMentionUsernames([
@@ -199,7 +197,6 @@ async function loadPostPageBase(id: string, includeHidden = false) {
     post,
     comments,
     communities,
-    railPosts,
     validMentionUsernames,
   };
 }
@@ -283,7 +280,7 @@ export default async function PostPage({
 
   if (!postPageBase) return notFound();
 
-  const { post, comments, communities, railPosts, validMentionUsernames } =
+  const { post, comments, communities, validMentionUsernames } =
     postPageBase;
 
   if (post.isHidden && !isAdmin) return notFound();
@@ -411,23 +408,11 @@ export default async function PostPage({
     isMember: false,
   }));
 
-  const formattedRailPosts = railPosts.map((item) => ({
-    id: item.id,
-    publicId: item.publicId,
-    title: item.title,
-    votes: item.votes,
-    community: item.community,
-    communityDisplayName: item.communityDisplayName,
-    communityColor: item.communityColor,
-    communityIcon: item.communityIcon,
-    time: timeAgo(item.createdAt),
-  }));
-
   return (
     <PostPageShell
       post={formattedPost}
       communities={formattedCommunities}
-      railPosts={formattedRailPosts}
+      railPosts={[]}
       backHref={backHref}
       renderedAt={renderedAt}
       notificationUnreadCount={0}

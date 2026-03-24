@@ -4,13 +4,9 @@ import { redirect } from "next/navigation";
 import FeedClient from "../../../components/FeedClient";
 import { getAuthState } from "../../../auth";
 import { loadCommunityNavigationItems } from "../../../lib/communityNav";
-import {
-  filterMentionUsernames,
-  loadExistingMentionUsernames,
-} from "../../../lib/mentions";
+import { extractMentionUsernames } from "../../../lib/mentions";
 import { compareRankedPosts, type FeedSort } from "../../../lib/postRanking";
 import { prisma } from "../../../lib/prisma";
-import { loadTrendingRailPosts } from "../../../lib/trendingRail";
 import { resolveStoredImageUrl } from "../../../r2";
 
 const PAGE_SIZE = 20;
@@ -330,10 +326,6 @@ async function loadFeedPageBase({
     sort,
     currentPage
   );
-  const validMentionUsernames = await loadExistingMentionUsernames(
-    visiblePosts.flatMap((post) => [post.title, post.body])
-  );
-  const validMentionSet = new Set(validMentionUsernames);
 
   return {
     hasNextPage,
@@ -350,9 +342,8 @@ async function loadFeedPageBase({
       votes: post.score ?? 0,
       userVote: null,
       comments: post.commentCount ?? 0,
-      mentions: filterMentionUsernames(
-        [post.title, post.body].filter(Boolean).join("\n"),
-        validMentionSet
+      mentions: extractMentionUsernames(
+        [post.title, post.body].filter(Boolean).join("\n")
       ),
       time: timeAgo(post.createdAt),
       flair: post.flair,
@@ -533,7 +524,7 @@ export default async function FeedPage({
     initialScope === "home" &&
     joinedCommunityIds.length > 0;
 
-  const [feedBase, communities, trendingRailPosts] =
+  const [feedBase, communities] =
     await Promise.all([
       shouldUseCachedPublicFeedBase(
         initialSelectedCommunity,
@@ -563,11 +554,10 @@ export default async function FeedPage({
               sort: initialSort,
               currentPage,
               joinedCommunityIds,
-              followedAuthorIds,
-              isPersonalizedHome,
+            followedAuthorIds,
+            isPersonalizedHome,
             }),
       loadCommunityNavigationItems(),
-      loadTrendingRailPosts(5),
     ]);
 
   const [postVotes, savedPosts] =
@@ -604,14 +594,6 @@ export default async function FeedPage({
     userVote: formatUserVote(postVoteMap.get(post.id)),
     isSaved: savedPostIdSet.has(post.id),
   }));
-  const formattedRailPosts = trendingRailPosts.map((post) => ({
-    id: post.id,
-    publicId: post.publicId,
-    title: post.title,
-    votes: post.votes,
-    community: post.community,
-  }));
-
   const formattedCommunities = communities.map((community) => ({
     id: community.id,
     name: community.name,
@@ -636,7 +618,7 @@ export default async function FeedPage({
       hasPreviousPage={hasPreviousPage}
       isPersonalizedHome={isPersonalizedHome}
       followedAuthorCount={followedAuthorIds.length}
-      railPosts={formattedRailPosts}
+      railPosts={[]}
       notificationUnreadCount={0}
       currentUser={
         user

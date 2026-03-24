@@ -499,10 +499,61 @@ function CommentVotes({
 }
 
 function RightRail({
-  posts,
+  posts: initialPosts,
+  excludePostId,
 }: {
   posts: RailPost[];
+  excludePostId: string;
 }) {
+  const [posts, setPosts] = useState(initialPosts);
+  const [loadingPosts, setLoadingPosts] = useState(initialPosts.length === 0);
+
+  useEffect(() => {
+    setPosts(initialPosts);
+    setLoadingPosts(initialPosts.length === 0);
+  }, [initialPosts]);
+
+  useEffect(() => {
+    if (initialPosts.length > 0) {
+      return;
+    }
+
+    let ignore = false;
+    const controller = new AbortController();
+
+    async function loadPosts() {
+      try {
+        const res = await fetch(
+          `/api/trending-rail?limit=5&excludePostId=${encodeURIComponent(excludePostId)}`,
+          {
+            cache: "no-store",
+            signal: controller.signal,
+          }
+        );
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok || ignore) {
+          return;
+        }
+
+        setPosts(Array.isArray(data?.posts) ? data.posts : []);
+      } catch {
+        // Best-effort after-paint enhancement.
+      } finally {
+        if (!ignore) {
+          setLoadingPosts(false);
+        }
+      }
+    }
+
+    void loadPosts();
+
+    return () => {
+      ignore = true;
+      controller.abort();
+    };
+  }, [excludePostId, initialPosts]);
+
   return (
     <aside className="feed-right">
       <div className="card" style={{ padding: "16px 18px", marginBottom: 14 }}>
@@ -557,67 +608,112 @@ function RightRail({
           Trending In The Void
         </h3>
 
-        {posts.slice(0, 5).map((p, i) => (
-          <IntentPrefetchLink
-            key={p.id}
-            href={`/p/${p.publicId}`}
-            style={{
-              display: "flex",
-              gap: 10,
-              padding: "9px 0",
-              borderTop: i === 0 ? "none" : "1px solid #1a1a1a",
-              cursor: "pointer",
-              transition: "opacity .15s",
-              textDecoration: "none",
-            }}
-          >
-            <span
-              style={{
-                fontSize: 13,
-                fontWeight: 800,
-                color: "#2a2929",
-                width: 18,
-                flexShrink: 0,
-                paddingTop: 1,
-              }}
-            >
-              {i + 1}
-            </span>
-
-            <div>
-              <p
-                style={{
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: "#8a8682",
-                  lineHeight: 1.42,
-                }}
-              >
-                {p.title.length > 58 ? p.title.slice(0, 58) + "…" : p.title}
-              </p>
-
+        {loadingPosts && posts.length === 0
+          ? Array.from({ length: 5 }).map((_, i) => (
               <div
+                key={`trending-skeleton-${i}`}
                 style={{
                   display: "flex",
-                  gap: 6,
-                  marginTop: 4,
-                  alignItems: "center",
+                  gap: 10,
+                  padding: "9px 0",
+                  borderTop: i === 0 ? "none" : "1px solid #1a1a1a",
                 }}
               >
-                <CommunityBadge
-                  name={p.community}
-                  displayName={p.communityDisplayName}
-                  color={p.communityColor}
-                  icon={p.communityIcon}
-                />
-
-                <span style={{ fontSize: 10.5, color: "#383635" }}>
-                  score {fmt(p.votes)}
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 800,
+                    color: "#2a2929",
+                    width: 18,
+                    flexShrink: 0,
+                    paddingTop: 1,
+                  }}
+                >
+                  {i + 1}
                 </span>
+
+                <div style={{ width: "100%" }}>
+                  <div
+                    style={{
+                      height: 14,
+                      width: `${84 - i * 5}%`,
+                      borderRadius: 6,
+                      background: "#211f1f",
+                    }}
+                  />
+                  <div
+                    style={{
+                      height: 10,
+                      width: `${48 - i * 4}%`,
+                      borderRadius: 999,
+                      background: "#1b1a1a",
+                      marginTop: 8,
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-          </IntentPrefetchLink>
-        ))}
+            ))
+          : posts.slice(0, 5).map((p, i) => (
+              <IntentPrefetchLink
+                key={p.id}
+                href={`/p/${p.publicId}`}
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  padding: "9px 0",
+                  borderTop: i === 0 ? "none" : "1px solid #1a1a1a",
+                  cursor: "pointer",
+                  transition: "opacity .15s",
+                  textDecoration: "none",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 800,
+                    color: "#2a2929",
+                    width: 18,
+                    flexShrink: 0,
+                    paddingTop: 1,
+                  }}
+                >
+                  {i + 1}
+                </span>
+
+                <div>
+                  <p
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 500,
+                      color: "#8a8682",
+                      lineHeight: 1.42,
+                    }}
+                  >
+                    {p.title.length > 58 ? p.title.slice(0, 58) + "…" : p.title}
+                  </p>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 6,
+                      marginTop: 4,
+                      alignItems: "center",
+                    }}
+                  >
+                    <CommunityBadge
+                      name={p.community}
+                      displayName={p.communityDisplayName}
+                      color={p.communityColor}
+                      icon={p.communityIcon}
+                    />
+
+                    <span style={{ fontSize: 10.5, color: "#383635" }}>
+                      score {fmt(p.votes)}
+                    </span>
+                  </div>
+                </div>
+              </IntentPrefetchLink>
+            ))}
       </div>
     </aside>
   );
@@ -2335,7 +2431,7 @@ export default function PostPageShell({
           </div>
         </main>
 
-        <RightRail posts={railPosts} />
+        <RightRail posts={railPosts} excludePostId={post.id} />
       </div>
     </div>
   );

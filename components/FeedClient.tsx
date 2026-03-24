@@ -49,6 +49,9 @@ type FeedRailPost = {
   title: string;
   votes: number;
   community: string;
+  communityDisplayName: string;
+  communityColor: string;
+  communityIcon: string;
 };
 
 type FeedCommunity = {
@@ -421,6 +424,7 @@ function PostCard({
                       <ExternalAwareImage
                         src={previewImageUrl}
                         alt={p.title}
+                        priority={idx < 2}
                         sizes="(max-width: 768px) calc(100vw - 72px), 640px"
                         fit="cover"
                       />
@@ -478,15 +482,61 @@ function PostCard({
 
 function RightRail({
   selectedCommunity,
-  trendingPosts,
-  communities,
+  trendingPosts: initialTrendingPosts,
   postHref,
 }: {
   selectedCommunity: FeedCommunity | null;
   trendingPosts: FeedRailPost[];
-  communities: FeedCommunity[];
   postHref: (publicId: string) => string;
 }) {
+  const [trendingPosts, setTrendingPosts] = useState(initialTrendingPosts);
+  const [loadingTrending, setLoadingTrending] = useState(
+    initialTrendingPosts.length === 0
+  );
+
+  useEffect(() => {
+    setTrendingPosts(initialTrendingPosts);
+    setLoadingTrending(initialTrendingPosts.length === 0);
+  }, [initialTrendingPosts]);
+
+  useEffect(() => {
+    if (initialTrendingPosts.length > 0) {
+      return;
+    }
+
+    let ignore = false;
+    const controller = new AbortController();
+
+    async function loadTrending() {
+      try {
+        const res = await fetch("/api/trending-rail?limit=5", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok || ignore) {
+          return;
+        }
+
+        setTrendingPosts(Array.isArray(data?.posts) ? data.posts : []);
+      } catch {
+        // Best-effort after-paint enhancement.
+      } finally {
+        if (!ignore) {
+          setLoadingTrending(false);
+        }
+      }
+    }
+
+    void loadTrending();
+
+    return () => {
+      ignore = true;
+      controller.abort();
+    };
+  }, [initialTrendingPosts]);
+
   return (
     <aside className="feed-right">
       <div className="card" style={{ padding: "16px 18px", marginBottom: 14 }}>
@@ -560,47 +610,104 @@ function RightRail({
           Trending In The Void
         </h3>
 
-        {trendingPosts.map((p, i) => (
-          <IntentPrefetchLink
-            key={p.id}
-            href={postHref(p.publicId)}
-            style={{
-              display: "flex",
-              gap: 10,
-              padding: "9px 0",
-              borderTop: i === 0 ? "none" : "1px solid #1a1a1a",
-              cursor: "pointer",
-              transition: "opacity .15s",
-              textDecoration: "none",
-            }}
-          >
-            <span
-              style={{
-                fontSize: 13,
-                fontWeight: 800,
-                color: "#2a2929",
-                width: 18,
-                flexShrink: 0,
-                paddingTop: 1,
-              }}
-            >
-              {i + 1}
-            </span>
-
-            <div>
-              <p style={{ fontSize: 12, fontWeight: 500, color: "#8a8682", lineHeight: 1.42 }}>
-                {p.title.length > 58 ? p.title.slice(0, 58) + "…" : p.title}
-              </p>
-
-              <div style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center" }}>
-                <Badge cid={p.community} communities={communities} />
-                <span style={{ fontSize: 10.5, color: "#383635" }}>
-                  score {fmt(p.votes)}
+        {loadingTrending && trendingPosts.length === 0
+          ? Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={`trending-skeleton-${i}`}
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  padding: "9px 0",
+                  borderTop: i === 0 ? "none" : "1px solid #1a1a1a",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 800,
+                    color: "#2a2929",
+                    width: 18,
+                    flexShrink: 0,
+                    paddingTop: 1,
+                  }}
+                >
+                  {i + 1}
                 </span>
+
+                <div style={{ width: "100%" }}>
+                  <div
+                    style={{
+                      height: 14,
+                      width: `${84 - i * 5}%`,
+                      borderRadius: 6,
+                      background: "#211f1f",
+                    }}
+                  />
+                  <div
+                    style={{
+                      height: 10,
+                      width: `${48 - i * 4}%`,
+                      borderRadius: 999,
+                      background: "#1b1a1a",
+                      marginTop: 8,
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-          </IntentPrefetchLink>
-        ))}
+            ))
+          : trendingPosts.map((p, i) => (
+              <IntentPrefetchLink
+                key={p.id}
+                href={postHref(p.publicId)}
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  padding: "9px 0",
+                  borderTop: i === 0 ? "none" : "1px solid #1a1a1a",
+                  cursor: "pointer",
+                  transition: "opacity .15s",
+                  textDecoration: "none",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 800,
+                    color: "#2a2929",
+                    width: 18,
+                    flexShrink: 0,
+                    paddingTop: 1,
+                  }}
+                >
+                  {i + 1}
+                </span>
+
+                <div>
+                  <p
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 500,
+                      color: "#8a8682",
+                      lineHeight: 1.42,
+                    }}
+                  >
+                    {p.title.length > 58 ? p.title.slice(0, 58) + "…" : p.title}
+                  </p>
+
+                  <div style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center" }}>
+                    <CommunityBadge
+                      name={p.community}
+                      displayName={p.communityDisplayName}
+                      color={p.communityColor}
+                      icon={p.communityIcon}
+                    />
+                    <span style={{ fontSize: 10.5, color: "#383635" }}>
+                      score {fmt(p.votes)}
+                    </span>
+                  </div>
+                </div>
+              </IntentPrefetchLink>
+            ))}
       </div>
     </aside>
   );
@@ -1009,7 +1116,6 @@ export default function FeedClient({
         <RightRail
           selectedCommunity={selectedCommunity}
           trendingPosts={railPosts}
-          communities={communities}
           postHref={postHref}
         />
       </div>

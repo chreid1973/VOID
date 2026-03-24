@@ -7,6 +7,10 @@ type ExternalAwareImageProps = {
 };
 import Image from "next/image";
 
+function isDirectMediaProxy(src: string) {
+  return src.startsWith("/api/media/");
+}
+
 export default function ExternalAwareImage({
   src,
   alt,
@@ -22,6 +26,9 @@ export default function ExternalAwareImage({
         fill
         sizes={sizes}
         priority={priority}
+        unoptimized={isDirectMediaProxy(src)}
+        fetchPriority={priority ? "high" : undefined}
+        loading={priority ? "eager" : undefined}
         style={{ objectFit: fit }}
       />
     );
@@ -32,7 +39,8 @@ export default function ExternalAwareImage({
       src={src}
       alt={alt}
       loading={priority ? "eager" : "lazy"}
-      decoding="async"
+      decoding={priority ? "sync" : "async"}
+      fetchPriority={priority ? "high" : "auto"}
       style={{
         width: "100%",
         height: "100%",
