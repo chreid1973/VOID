@@ -65,6 +65,10 @@ type FeedSidebarProps =
 
 const COMMUNITY_GROUPS = [
   {
+    label: "SocialVOID",
+    communityNames: ["void-announcements"],
+  },
+  {
     label: "Entertainment",
     communityNames: ["memes", "movies-tv", "gaming", "music"],
   },

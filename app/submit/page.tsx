@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { canUserPostToCommunity } from "../../lib/communityPermissions";
 import { getAuthState } from "../../auth";
 import { loadCommunityNavigationItems } from "../../lib/communityNav";
 import { prisma } from "../../lib/prisma";
@@ -54,6 +55,10 @@ export default async function SubmitPage({
     }
   }
 
+  const availableCommunities = communities.filter((community) =>
+    canUserPostToCommunity(community, user)
+  );
+
   return (
     <div
       style={{
@@ -106,7 +111,7 @@ export default async function SubmitPage({
           }}
         >
           <SubmitForm
-            communities={communities.map((community) => ({
+            communities={availableCommunities.map((community) => ({
               id: community.id,
               name: community.name,
               displayName: community.displayName,

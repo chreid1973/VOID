@@ -7,6 +7,14 @@ const prisma = new PrismaClient();
 
 const communitySeeds = [
   {
+    name: "void-announcements",
+    displayName: "Void Announcements",
+    icon: "📢",
+    color: "#ff6d36",
+    description:
+      "Official SocialVOID updates, release notes, and platform announcements. Only admins can start threads here.",
+  },
+  {
     name: "design",
     displayName: "Design",
     icon: "✦",

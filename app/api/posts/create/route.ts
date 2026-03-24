@@ -16,6 +16,7 @@ import {
   plainTextToRichHtml,
   sanitizePostBodyHtml,
 } from "../../../../lib/richText";
+import { canUserPostToCommunity } from "../../../../lib/communityPermissions";
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -75,6 +76,30 @@ export async function POST(req: Request) {
   const shouldIncludeLinkPreviewDescription =
     includeLinkPreviewDescription === true;
   const shouldIncludeLinkPreviewImage = includeLinkPreviewImage === true;
+  const selectedCommunity = await prisma.community.findUnique({
+    where: { id: trimmedCommunityId },
+    select: {
+      id: true,
+      name: true,
+      displayName: true,
+    },
+  });
+
+  if (!selectedCommunity) {
+    return NextResponse.json(
+      { error: "Community not found." },
+      { status: 404 }
+    );
+  }
+
+  if (!canUserPostToCommunity(selectedCommunity, user)) {
+    return NextResponse.json(
+      {
+        error: `Only admins can post in ${selectedCommunity.displayName}.`,
+      },
+      { status: 403 }
+    );
+  }
 
   if (
     trimmedCrosspostOfPostId &&
@@ -269,7 +294,7 @@ export async function POST(req: Request) {
             url: finalUrl,
             imageKey: storedImageKey,
             type: finalType,
-            communityId: trimmedCommunityId,
+            communityId: selectedCommunity.id,
             authorId: user.id,
             score: 1,
             crosspostOfPostId: crosspostSource?.id ?? null,
