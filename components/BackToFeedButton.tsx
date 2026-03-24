@@ -2,7 +2,11 @@
 
 import { useRouter } from "next/navigation";
 
-export default function BackToFeedButton() {
+export default function BackToFeedButton({
+  fallbackHref = "/feed",
+}: {
+  fallbackHref?: string;
+}) {
   const router = useRouter();
 
   return (
@@ -14,7 +18,7 @@ export default function BackToFeedButton() {
           return;
         }
 
-        router.push("/feed");
+        router.push(fallbackHref);
       }}
       style={{
         display: "inline-flex",

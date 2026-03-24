@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import "../app/(main)/feed/feed.css";
 import { ActionNotice, type ActionNoticeState } from "./ActionNotice";
+import BackToFeedButton from "./BackToFeedButton";
 import CommentGifPreview from "./CommentGifPreview";
 import { CommunityBadge, FeedSidebar, FeedTopBar } from "./FeedChrome";
 import ExternalAwareImage from "./ExternalAwareImage";
@@ -2008,28 +2009,7 @@ export default function PostPageShell({
 
         <main className="feed-main">
           <div style={{ animation: "rise .3s ease" }}>
-            <IntentPrefetchLink
-              href={backHref}
-              style={{
-                background: "none",
-                border: "1px solid #242323",
-                borderRadius: 7,
-                color: "#6a6764",
-                fontFamily: "var(--font-outfit), sans-serif",
-                fontSize: 12.5,
-                fontWeight: 500,
-                padding: "5px 13px",
-                cursor: "pointer",
-                marginBottom: 20,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-                transition: "all .15s",
-                textDecoration: "none",
-              }}
-            >
-              ← Back to feed
-            </IntentPrefetchLink>
+            <BackToFeedButton fallbackHref={backHref} />
 
             <div
               className="card"
