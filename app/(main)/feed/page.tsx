@@ -16,6 +16,7 @@ import { resolveStoredImageUrl } from "../../../r2";
 const PAGE_SIZE = 20;
 const RANKING_CANDIDATE_LIMIT = 250;
 const FEED_CONTENT_TAG = "feed-content";
+const VIEWER_FEED_REVALIDATE_SECONDS = 15;
 
 type FeedScope = "home" | "following" | "popular" | "all";
 
@@ -395,6 +396,37 @@ const loadCachedPublicFeedPageBase = unstable_cache(
   }
 );
 
+function deserializeIdList(value: string) {
+  return value ? value.split(",").filter(Boolean) : [];
+}
+
+const loadCachedViewerFeedPageBase = unstable_cache(
+  async (
+    _viewerCacheKey: string,
+    selectedCommunity: string | null,
+    scope: FeedScope,
+    sort: FeedSort,
+    currentPage: number,
+    joinedCommunityIdsKey: string,
+    followedAuthorIdsKey: string,
+    isPersonalizedHome: boolean
+  ) =>
+    loadFeedPageBase({
+      selectedCommunity,
+      scope,
+      sort,
+      currentPage,
+      joinedCommunityIds: deserializeIdList(joinedCommunityIdsKey),
+      followedAuthorIds: deserializeIdList(followedAuthorIdsKey),
+      isPersonalizedHome,
+    }),
+  [FEED_CONTENT_TAG, "viewer"],
+  {
+    revalidate: VIEWER_FEED_REVALIDATE_SECONDS,
+    tags: [FEED_CONTENT_TAG],
+  }
+);
+
 function shouldUseCachedPublicFeedBase(
   selectedCommunity: string | null,
   scope: FeedScope,
@@ -474,6 +506,8 @@ export default async function FeedPage({
   const joinedCommunityIds = memberships.map((membership) => membership.communityId);
   const joinedCommunityIdSet = new Set(joinedCommunityIds);
   const followedAuthorIds = follows.map((follow) => follow.followingId);
+  const joinedCommunityIdsKey = [...joinedCommunityIds].sort().join(",");
+  const followedAuthorIdsKey = [...followedAuthorIds].sort().join(",");
   const isPersonalizedHome =
     !initialSelectedCommunity &&
     initialScope === "home" &&
@@ -492,15 +526,26 @@ export default async function FeedPage({
             initialSort,
             currentPage
           )
-        : loadFeedPageBase({
-            selectedCommunity: initialSelectedCommunity,
-            scope: initialScope,
-            sort: initialSort,
-            currentPage,
-            joinedCommunityIds,
-            followedAuthorIds,
-            isPersonalizedHome,
-          }),
+        : user
+          ? loadCachedViewerFeedPageBase(
+              user.id,
+              initialSelectedCommunity,
+              initialScope,
+              initialSort,
+              currentPage,
+              joinedCommunityIdsKey,
+              followedAuthorIdsKey,
+              isPersonalizedHome
+            )
+          : loadFeedPageBase({
+              selectedCommunity: initialSelectedCommunity,
+              scope: initialScope,
+              sort: initialSort,
+              currentPage,
+              joinedCommunityIds,
+              followedAuthorIds,
+              isPersonalizedHome,
+            }),
       loadCommunityNavigationItems(),
       loadTrendingRailPosts(5),
       user
