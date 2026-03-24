@@ -34,7 +34,7 @@ function SkeletonBlock({
   );
 }
 
-export default function MainLoading() {
+export default function FeedLoading() {
   return (
     <div
       style={{
