@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import { Fraunces, Outfit } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -92,6 +93,7 @@ export default function RootLayout({
           }}
         >
           {children}
+          <SpeedInsights />
         </body>
       </html>
     </ClerkProvider>
