@@ -3,6 +3,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import { Fraunces, Outfit } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import SeasonalCursorEffect from "@/components/SeasonalCursorEffect";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -93,6 +94,7 @@ export default function RootLayout({
           }}
         >
           {children}
+          <SeasonalCursorEffect />
           <SpeedInsights />
         </body>
       </html>
