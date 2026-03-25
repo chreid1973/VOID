@@ -967,6 +967,7 @@ function ReplyComposer({
     message: string;
   } | null>(null);
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const { resolvedMentions } = useResolvedMentions(body);
   const mentionAutocomplete = useMentionAutocomplete({
@@ -979,6 +980,18 @@ function ReplyComposer({
       if (submitState) setSubmitState(null);
     },
   });
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      formRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      textareaRef.current?.focus({ preventScroll: true });
+    }, 40);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1040,7 +1053,7 @@ function ReplyComposer({
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ marginTop: 12 }}>
+    <form ref={formRef} onSubmit={handleSubmit} style={{ marginTop: 12 }}>
       <p style={{ fontSize: 11.5, color: "#484644", marginBottom: 8 }}>
         Reply as <span style={{ color: "#6a6764", fontWeight: 600 }}>you</span>
       </p>
