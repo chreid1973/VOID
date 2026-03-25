@@ -537,6 +537,10 @@ function RightRail({
     };
   }, [initialTrendingPosts]);
 
+  const createPostHref = selectedCommunity
+    ? `/submit?community=${encodeURIComponent(selectedCommunity.name)}`
+    : "/submit";
+
   return (
     <aside className="feed-right">
       <div className="card" style={{ padding: "16px 18px", marginBottom: 14 }}>
@@ -545,7 +549,7 @@ function RightRail({
         </p>
 
         <IntentPrefetchLink
-          href="/submit"
+          href={createPostHref}
           style={{
             width: "100%",
             background: "#ff4826",

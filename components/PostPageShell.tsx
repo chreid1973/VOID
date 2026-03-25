@@ -501,9 +501,11 @@ function CommentVotes({
 function RightRail({
   posts: initialPosts,
   excludePostId,
+  createPostHref,
 }: {
   posts: RailPost[];
   excludePostId: string;
+  createPostHref: string;
 }) {
   const [posts, setPosts] = useState(initialPosts);
   const [loadingPosts, setLoadingPosts] = useState(initialPosts.length === 0);
@@ -569,7 +571,7 @@ function RightRail({
         </p>
 
         <IntentPrefetchLink
-          href="/submit"
+          href={createPostHref}
           style={{
             width: "100%",
             background: "#ff4826",
@@ -2431,7 +2433,11 @@ export default function PostPageShell({
           </div>
         </main>
 
-        <RightRail posts={railPosts} excludePostId={post.id} />
+        <RightRail
+          posts={railPosts}
+          excludePostId={post.id}
+          createPostHref={`/submit?community=${encodeURIComponent(post.community.name)}`}
+        />
       </div>
     </div>
   );

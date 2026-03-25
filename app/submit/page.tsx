@@ -11,6 +11,7 @@ export default async function SubmitPage({
 }: {
   searchParams?: {
     crosspost?: string | string[];
+    community?: string | string[];
   };
 }) {
   const { userId, user } = await getAuthState();
@@ -22,6 +23,9 @@ export default async function SubmitPage({
   const crosspostId = Array.isArray(searchParams?.crosspost)
     ? searchParams?.crosspost[0]
     : searchParams?.crosspost;
+  const requestedCommunityName = Array.isArray(searchParams?.community)
+    ? searchParams?.community[0]
+    : searchParams?.community;
 
   const [communities, crosspostSource] = await Promise.all([
     loadCommunityNavigationItems(),
@@ -58,6 +62,19 @@ export default async function SubmitPage({
   const availableCommunities = communities.filter((community) =>
     canUserPostToCommunity(community, user)
   );
+  const initialCommunityId =
+    availableCommunities.find(
+      (community) =>
+        requestedCommunityName &&
+        community.name.toLowerCase() === requestedCommunityName.toLowerCase() &&
+        (!crosspostSource || community.id !== crosspostSource.communityId)
+    )?.id ??
+    (crosspostSource
+      ? availableCommunities.find(
+          (community) => community.id !== crosspostSource.communityId
+        )?.id
+      : availableCommunities[0]?.id) ??
+    "";
 
   return (
     <div
@@ -116,6 +133,7 @@ export default async function SubmitPage({
               name: community.name,
               displayName: community.displayName,
             }))}
+            initialCommunityId={initialCommunityId}
             crosspostSource={
               crosspostSource
                 ? {

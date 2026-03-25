@@ -85,9 +85,11 @@ function getUploadCorsErrorMessage() {
 
 export default function SubmitForm({
   communities,
+  initialCommunityId,
   crosspostSource,
 }: {
   communities: Community[];
+  initialCommunityId: string;
   crosspostSource: CrosspostSource | null;
 }) {
   const router = useRouter();
@@ -99,13 +101,7 @@ export default function SubmitForm({
   const [body, setBody] = useState("");
   const [bodyHtml, setBodyHtml] = useState("");
   const [url, setUrl] = useState("");
-  const [communityId, setCommunityId] = useState(
-    crosspostSource
-      ? communities.find((community) => community.id !== crosspostSource.communityId)?.id ||
-          communities[0]?.id ||
-          ""
-      : communities[0]?.id || ""
-  );
+  const [communityId, setCommunityId] = useState(initialCommunityId);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
   const [previewSourceUrl, setPreviewSourceUrl] = useState("");
