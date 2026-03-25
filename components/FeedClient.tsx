@@ -335,10 +335,11 @@ function PostCard({
             <IntentPrefetchLink
               href={postHref(p.crosspostSource.publicId)}
               style={{
-                display: "inline-flex",
+                display: "flex",
                 alignItems: "center",
                 gap: 6,
                 marginBottom: 10,
+                width: "fit-content",
                 color: "#8a8682",
                 fontSize: 12.5,
                 lineHeight: 1.5,
