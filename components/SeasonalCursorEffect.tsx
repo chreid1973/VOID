@@ -6,6 +6,8 @@ type CursorEffectHandle = {
   destroy(): void;
 };
 
+const CURSOR_CANVAS_Z_INDEX = "2147483647";
+
 function getSeasonalCursorEffectKey(now: Date) {
   const month = now.getMonth();
   const day = now.getDate();
@@ -19,6 +21,25 @@ function getSeasonalCursorEffectKey(now: Date) {
   }
 
   return null;
+}
+
+function promoteCursorCanvas() {
+  const canvases = Array.from(
+    document.querySelectorAll<HTMLCanvasElement>("body > canvas")
+  );
+  const cursorCanvas = canvases
+    .reverse()
+    .find(
+      (canvas) =>
+        canvas.style.pointerEvents === "none" &&
+        canvas.style.position === "fixed"
+    );
+
+  if (!cursorCanvas) {
+    return;
+  }
+
+  cursorCanvas.style.zIndex = CURSOR_CANVAS_Z_INDEX;
 }
 
 export default function SeasonalCursorEffect() {
@@ -57,6 +78,8 @@ export default function SeasonalCursorEffect() {
           emoji: ["🤡", "🥸", "🃏", "😜"],
           delay: 18,
         });
+        promoteCursorCanvas();
+        window.requestAnimationFrame(promoteCursorCanvas);
         return;
       }
 
@@ -72,6 +95,8 @@ export default function SeasonalCursorEffect() {
           "#750787",
         ],
       });
+      promoteCursorCanvas();
+      window.requestAnimationFrame(promoteCursorCanvas);
     }
 
     void loadEffect();
