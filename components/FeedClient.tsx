@@ -378,58 +378,26 @@ function PostCard({
             </h2>
 
             {p.body || previewImageUrl ? (
-              <div
-                style={{
-                  display: "grid",
-                  gap: 12,
-                  marginBottom: 12,
-                }}
-              >
+              <div className="post-card-copy">
                 {p.body ? (
-                  <p
-                    style={{
-                      fontSize: 13,
-                      lineHeight: 1.6,
-                      color: "#4d4b49",
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                    }}
-                    >
-                      <MentionText
-                        text={p.body}
-                        mentions={p.mentions}
-                        linkMentions={false}
-                      />
-                    </p>
+                  <p className="post-card-snippet">
+                    <MentionText
+                      text={p.body}
+                      mentions={p.mentions}
+                      linkMentions={false}
+                    />
+                  </p>
                 ) : null}
 
                 {previewImageUrl ? (
-                  <div
-                    style={{
-                      display: "block",
-                    }}
-                  >
-                    <div
-                      style={{
-                        position: "relative",
-                        width: "100%",
-                        height: "clamp(180px, 28vw, 280px)",
-                        borderRadius: 12,
-                        border: "1px solid #1f1f1f",
-                        background: "#111010",
-                        overflow: "hidden",
-                      }}
-                    >
-                      <ExternalAwareImage
-                        src={previewImageUrl}
-                        alt={p.title}
-                        priority={idx === 0}
-                        sizes="(max-width: 768px) calc(100vw - 72px), (max-width: 1360px) 46vw, 560px"
-                        fit="cover"
-                      />
-                    </div>
+                  <div className="post-card-media">
+                    <ExternalAwareImage
+                      src={previewImageUrl}
+                      alt={p.title}
+                      priority={idx === 0}
+                      sizes="(max-width: 768px) calc(100vw - 72px), (max-width: 1360px) 46vw, 560px"
+                      fit="cover"
+                    />
                   </div>
                 ) : null}
               </div>
