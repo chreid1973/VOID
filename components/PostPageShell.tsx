@@ -2247,40 +2247,6 @@ export default function PostPageShell({
                       <MentionText text={post.title} mentions={post.mentions} />
                     </h1>
 
-                  {post.bodyHtml ? (
-                    <div style={{ marginBottom: 22 }}>
-                      <RichPostBody html={post.bodyHtml} mentions={post.mentions} />
-                    </div>
-                  ) : post.body ? (
-                    <p
-                      style={{
-                        fontSize: 15,
-                        lineHeight: 1.78,
-                        color: "#8a8682",
-                        marginBottom: 22,
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      <MentionText text={post.body} mentions={post.mentions} />
-                    </p>
-                  ) : null}
-
-                  {post.url ? (
-                    <a
-                      href={post.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="post-source-link"
-                      style={{
-                        marginBottom: 22,
-                        fontSize: 13,
-                      }}
-                    >
-                      <span>↗</span>
-                      <span>View on {linkHost(post.url)}</span>
-                    </a>
-                  ) : null}
-
                   {sunoEmbed ? (
                     <div
                       style={{
@@ -2393,6 +2359,40 @@ export default function PostPageShell({
                         </div>
                       </div>
                     </a>
+                  ) : null}
+
+                  {post.url ? (
+                    <a
+                      href={post.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="post-source-link"
+                      style={{
+                        marginBottom: 22,
+                        fontSize: 13,
+                      }}
+                    >
+                      <span>↗</span>
+                      <span>View on {linkHost(post.url)}</span>
+                    </a>
+                  ) : null}
+
+                  {post.bodyHtml ? (
+                    <div style={{ marginBottom: 22 }}>
+                      <RichPostBody html={post.bodyHtml} mentions={post.mentions} />
+                    </div>
+                  ) : post.body ? (
+                    <p
+                      style={{
+                        fontSize: 15,
+                        lineHeight: 1.78,
+                        color: "#8a8682",
+                        marginBottom: 22,
+                        whiteSpace: "pre-wrap",
+                      }}
+                    >
+                      <MentionText text={post.body} mentions={post.mentions} />
+                    </p>
                   ) : null}
                 </>
               )}
