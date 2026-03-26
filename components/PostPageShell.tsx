@@ -20,6 +20,7 @@ import { useMentionAutocomplete } from "./useMentionAutocomplete";
 import { useResolvedMentions } from "./useResolvedMentions";
 import { normalizePreviewImageUrl } from "../lib/previewImages";
 import { getSpotifyEmbed } from "../lib/spotify";
+import { getSunoEmbed } from "../lib/suno";
 import { getYouTubeEmbedUrl, getYouTubeThumbnailUrl } from "../lib/youtube";
 import type { CommentGif } from "../lib/commentGifs";
 import { hasCommentContent } from "../lib/commentGifs";
@@ -2008,6 +2009,7 @@ export default function PostPageShell({
   const [postPending, setPostPending] = useState(false);
   const youtubeEmbedUrl = getYouTubeEmbedUrl(post.url);
   const spotifyEmbed = getSpotifyEmbed(post.url);
+  const sunoEmbed = getSunoEmbed(post.url);
   const fallbackPostImageUrl = preferredPostImageUrl(post.imageUrl, post.url);
 
   useEffect(() => {
@@ -2279,7 +2281,32 @@ export default function PostPageShell({
                     </a>
                   ) : null}
 
-                  {spotifyEmbed ? (
+                  {sunoEmbed ? (
+                    <div
+                      style={{
+                        marginBottom: 22,
+                        borderRadius: 16,
+                        overflow: "hidden",
+                        border: "1px solid #1f1f1f",
+                        background: "#111010",
+                      }}
+                    >
+                      <iframe
+                        src={sunoEmbed.embedUrl}
+                        title={`${post.title} on Suno`}
+                        allow="autoplay; encrypted-media; fullscreen"
+                        allowFullScreen
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                        style={{
+                          width: "100%",
+                          height: sunoEmbed.height,
+                          border: "none",
+                          display: "block",
+                        }}
+                      />
+                    </div>
+                  ) : spotifyEmbed ? (
                     <div
                       style={{
                         marginBottom: 22,
