@@ -105,6 +105,7 @@ model Post {
   bodyHtml     String?
   url          String?
   imageKey     String?
+  imagePreviewKey String?
   type         PostType @default(TEXT)
   flair        String?
   flairColor   String?

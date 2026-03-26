@@ -17,6 +17,7 @@ import {
   sanitizePostBodyHtml,
 } from "../../../../lib/richText";
 import { canUserPostToCommunity } from "../../../../lib/communityPermissions";
+import { createPostPreviewVariant } from "../../../../lib/postImagePreview";
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -293,6 +294,7 @@ export async function POST(req: Request) {
             bodyHtml: finalBodyHtml,
             url: finalUrl,
             imageKey: storedImageKey,
+            imagePreviewKey: null,
             type: finalType,
             communityId: selectedCommunity.id,
             authorId: user.id,
@@ -348,6 +350,23 @@ export async function POST(req: Request) {
 
   revalidateTag("community-navigation");
   revalidateTag("feed-content");
+
+  if (storedImageKey) {
+    try {
+      const previewKey = await createPostPreviewVariant(storedImageKey, post.id);
+
+      if (previewKey) {
+        await prisma.post.update({
+          where: { id: post.id },
+          data: { imagePreviewKey: previewKey },
+        });
+
+        revalidateTag("feed-content");
+      }
+    } catch (error) {
+      console.error("[POST /api/posts/create] failed to create preview image", error);
+    }
+  }
 
   return NextResponse.json({ ok: true, postId: post.id, publicId: post.publicId });
 }

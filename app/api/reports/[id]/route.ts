@@ -30,6 +30,7 @@ export async function PATCH(req: Request, { params }: Params) {
           select: {
             id: true,
             imageKey: true,
+            imagePreviewKey: true,
             authorId: true,
           },
         },
@@ -145,12 +146,16 @@ export async function PATCH(req: Request, { params }: Params) {
       }
     });
 
-    if (data.action === "DELETE_POST" && report.post?.imageKey) {
-      const storedImageKey = extractStoredR2Key(report.post.imageKey);
+    if (data.action === "DELETE_POST" && report.post) {
+      const storedKeys = new Set(
+        [report.post.imageKey, report.post.imagePreviewKey]
+          .map((imageRef) => (imageRef ? extractStoredR2Key(imageRef) : null))
+          .filter((key): key is string => Boolean(key))
+      );
 
-      if (storedImageKey) {
+      for (const storedKey of Array.from(storedKeys)) {
         try {
-          await deleteObject(storedImageKey);
+          await deleteObject(storedKey);
         } catch (cleanupErr) {
           console.error("[PATCH /api/reports/:id] failed to delete post image", cleanupErr);
         }

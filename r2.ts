@@ -51,6 +51,41 @@ export async function getObjectUrl(key: string, expiresIn = 3600) {
   return getSignedUrl(r2, command, { expiresIn });
 }
 
+export async function getObjectBytes(key: string): Promise<Buffer> {
+  const response = await r2.send(
+    new GetObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+    })
+  );
+
+  if (!response.Body) {
+    throw new Error(`Object body missing for key: ${key}`);
+  }
+
+  const bytes = await response.Body.transformToByteArray();
+  return Buffer.from(bytes);
+}
+
+export async function putObjectBuffer(
+  key: string,
+  body: Buffer | Uint8Array,
+  contentType: string,
+  cacheControl = "public, max-age=31536000, immutable"
+) {
+  await r2.send(
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+      CacheControl: cacheControl,
+    })
+  );
+
+  return { key, publicUrl: getPublicUrl(key) };
+}
+
 // ── Delete an object ───────────────────────────────────────────
 
 export async function deleteObject(key: string) {

@@ -76,6 +76,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       select: {
         authorId: true,
         imageKey: true,
+        imagePreviewKey: true,
       },
     });
 
@@ -87,17 +88,19 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const storedImageKey = post.imageKey
-      ? extractStoredR2Key(post.imageKey)
-      : null;
+    const storedKeys = new Set(
+      [post.imageKey, post.imagePreviewKey]
+        .map((imageRef) => (imageRef ? extractStoredR2Key(imageRef) : null))
+        .filter((key): key is string => Boolean(key))
+    );
 
     await prisma.post.delete({
       where: { id: params.id },
     });
 
-    if (storedImageKey) {
+    for (const storedKey of Array.from(storedKeys)) {
       try {
-        await deleteObject(storedImageKey);
+        await deleteObject(storedKey);
       } catch (cleanupErr) {
         console.error("[DELETE /api/posts/:id] failed to delete image", cleanupErr);
       }

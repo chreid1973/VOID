@@ -336,7 +336,11 @@ async function loadFeedPageBase({
       title: post.title,
       body: post.body ?? "",
       url: post.url,
-      imageUrl: post.imageKey ? resolveStoredImageUrl(post.imageKey) : null,
+      imageUrl: post.imagePreviewKey
+        ? resolveStoredImageUrl(post.imagePreviewKey)
+        : post.imageKey
+          ? resolveStoredImageUrl(post.imageKey)
+          : null,
       authorName: post.author.displayName || post.author.username,
       authorUsername: post.author.username,
       votes: post.score ?? 0,
