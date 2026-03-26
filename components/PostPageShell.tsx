@@ -19,6 +19,7 @@ import SavePostButton from "./SavePostButton";
 import { useMentionAutocomplete } from "./useMentionAutocomplete";
 import { useResolvedMentions } from "./useResolvedMentions";
 import { normalizePreviewImageUrl } from "../lib/previewImages";
+import { getSpotifyEmbed } from "../lib/spotify";
 import { getYouTubeEmbedUrl, getYouTubeThumbnailUrl } from "../lib/youtube";
 import type { CommentGif } from "../lib/commentGifs";
 import { hasCommentContent } from "../lib/commentGifs";
@@ -2006,6 +2007,7 @@ export default function PostPageShell({
   const [postBody, setPostBody] = useState("");
   const [postPending, setPostPending] = useState(false);
   const youtubeEmbedUrl = getYouTubeEmbedUrl(post.url);
+  const spotifyEmbed = getSpotifyEmbed(post.url);
   const fallbackPostImageUrl = preferredPostImageUrl(post.imageUrl, post.url);
 
   useEffect(() => {
@@ -2277,7 +2279,30 @@ export default function PostPageShell({
                     </a>
                   ) : null}
 
-                  {youtubeEmbedUrl ? (
+                  {spotifyEmbed ? (
+                    <div
+                      style={{
+                        marginBottom: 22,
+                        borderRadius: 16,
+                        overflow: "hidden",
+                        border: "1px solid #1f1f1f",
+                        background: "#111010",
+                      }}
+                    >
+                      <iframe
+                        src={spotifyEmbed.embedUrl}
+                        title={`${post.title} on Spotify`}
+                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                        loading="lazy"
+                        style={{
+                          width: "100%",
+                          height: spotifyEmbed.height,
+                          border: "none",
+                          display: "block",
+                        }}
+                      />
+                    </div>
+                  ) : youtubeEmbedUrl ? (
                     <div
                       style={{
                         marginBottom: 22,
