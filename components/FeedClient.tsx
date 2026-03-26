@@ -321,7 +321,7 @@ function PostCard({
               style={{ fontSize: 11.5, color: "#3d3c3a", textDecoration: "none" }}
               onClick={(e) => e.stopPropagation()}
             >
-              u/<span style={{ color: "#565451" }}>{p.authorName}</span>
+              Posted by <span style={{ color: "#565451" }}>{p.authorName}</span>
             </IntentPrefetchLink>
 
             <span style={{ fontSize: 11.5, color: "#2d2c2b" }}>·</span>

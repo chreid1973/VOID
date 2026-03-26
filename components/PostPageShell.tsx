@@ -2152,7 +2152,7 @@ export default function PostPageShell({
                     href={`/u/${encodeURIComponent(post.author.username)}`}
                     style={{ color: "inherit", textDecoration: "none" }}
                   >
-                    u/{post.author.displayName || post.author.username}
+                    Posted by {post.author.displayName || post.author.username}
                   </IntentPrefetchLink>{" "}
                   · {timeAgo(post.createdAt, nowMs)}
                 </span>
