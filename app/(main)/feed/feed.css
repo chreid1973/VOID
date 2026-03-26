@@ -469,6 +469,10 @@ input::placeholder {
   display: none;
 }
 
+.feed-mobile-create-fab {
+  display: none;
+}
+
 .mobile-topbar-btn {
   position: relative;
   display: inline-flex;
@@ -700,6 +704,26 @@ input::placeholder {
     display: block;
   }
 
+  .feed-mobile-create-fab {
+    position: fixed;
+    right: 14px;
+    bottom: 16px;
+    z-index: 120;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 46px;
+    padding: 0 16px;
+    border-radius: 999px;
+    background: #ff4826;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-decoration: none;
+    box-shadow: 0 10px 28px rgba(255, 72, 38, 0.34);
+  }
+
   .feed-topbar-mobile-actions {
     display: flex;
     align-items: center;
@@ -763,6 +787,13 @@ input::placeholder {
     min-width: 36px;
     height: 36px;
     padding: 0 9px;
+  }
+
+  .feed-mobile-create-fab {
+    right: 12px;
+    bottom: 14px;
+    min-height: 44px;
+    padding: 0 14px;
   }
 
   .post-card-media {

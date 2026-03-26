@@ -808,6 +808,9 @@ export default function FeedClient({
   })();
   const postHref = (publicId: string) =>
     `/p/${publicId}?from=${encodeURIComponent(currentFeedHref)}`;
+  const mobileCreatePostHref = selectedCommunity
+    ? `/submit?community=${encodeURIComponent(selectedCommunity.name)}`
+    : "/submit";
 
   useEffect(() => {
     if (!actionNotice) return;
@@ -1092,6 +1095,13 @@ export default function FeedClient({
           postHref={postHref}
         />
       </div>
+
+      <IntentPrefetchLink
+        href={mobileCreatePostHref}
+        className="feed-mobile-create-fab"
+      >
+        + Post
+      </IntentPrefetchLink>
     </div>
   );
 }

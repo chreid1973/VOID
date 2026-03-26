@@ -2505,6 +2505,13 @@ export default function PostPageShell({
           createPostHref={`/submit?community=${encodeURIComponent(post.community.name)}`}
         />
       </div>
+
+      <IntentPrefetchLink
+        href={`/submit?community=${encodeURIComponent(post.community.name)}`}
+        className="feed-mobile-create-fab"
+      >
+        + Post
+      </IntentPrefetchLink>
     </div>
   );
 }
