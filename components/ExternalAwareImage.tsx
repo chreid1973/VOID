@@ -39,7 +39,7 @@ export default function ExternalAwareImage({
       src={src}
       alt={alt}
       loading={priority ? "eager" : "lazy"}
-      decoding={priority ? "sync" : "async"}
+      decoding="async"
       fetchPriority={priority ? "high" : "auto"}
       style={{
         width: "100%",

@@ -2314,7 +2314,7 @@ export default function PostPageShell({
                     >
                       <div
                         style={{
-                          maxHeight: 640,
+                          maxHeight: 520,
                           borderRadius: 16,
                           border: "1px solid #1f1f1f",
                           background: "#111010",
@@ -2328,14 +2328,14 @@ export default function PostPageShell({
                           style={{
                             position: "relative",
                             width: "100%",
-                            height: "min(70vh, 640px)",
+                            height: "min(56vh, 520px)",
                           }}
                         >
                           <ExternalAwareImage
                             src={fallbackPostImageUrl}
                             alt={post.title}
                             priority
-                            sizes="(max-width: 900px) calc(100vw - 64px), 760px"
+                            sizes="(max-width: 900px) calc(100vw - 64px), 680px"
                             fit="scale-down"
                           />
                         </div>

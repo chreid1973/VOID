@@ -415,7 +415,7 @@ function PostCard({
                       style={{
                         position: "relative",
                         width: "100%",
-                        height: "clamp(180px, 32vw, 320px)",
+                        height: "clamp(180px, 28vw, 280px)",
                         borderRadius: 12,
                         border: "1px solid #1f1f1f",
                         background: "#111010",
@@ -425,8 +425,8 @@ function PostCard({
                       <ExternalAwareImage
                         src={previewImageUrl}
                         alt={p.title}
-                        priority={idx < 2}
-                        sizes="(max-width: 768px) calc(100vw - 72px), 640px"
+                        priority={idx === 0}
+                        sizes="(max-width: 768px) calc(100vw - 72px), (max-width: 1360px) 46vw, 560px"
                         fit="cover"
                       />
                     </div>
