@@ -19,7 +19,11 @@ export default function RichPostBody({
           return undefined;
         }
 
-        if (!domNode.data || !domNode.data.includes("@")) {
+        if (
+          !domNode.data ||
+          (!domNode.data.includes("@") &&
+            !/https?:\/\/|www\./i.test(domNode.data))
+        ) {
           return undefined;
         }
 

@@ -374,7 +374,12 @@ function PostCard({
             style={{ display: "block", textDecoration: "none", color: "inherit" }}
           >
             <h2 className="post-title">
-              <MentionText text={p.title} mentions={p.mentions} linkMentions={false} />
+              <MentionText
+                text={p.title}
+                mentions={p.mentions}
+                linkMentions={false}
+                linkUrls={false}
+              />
             </h2>
 
             {p.body || previewImageUrl ? (
@@ -385,6 +390,7 @@ function PostCard({
                       text={p.body}
                       mentions={p.mentions}
                       linkMentions={false}
+                      linkUrls={false}
                     />
                   </p>
                 ) : null}
