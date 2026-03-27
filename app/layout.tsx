@@ -18,7 +18,7 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   metadataBase: new URL("https://socialvoid.ca"),
   title: "SocialVOID - a better internet",
-  description: "The modern discussion platform",
+  description: "A discussion platform built for signal over noise",
   manifest: "/images/favicon/site.webmanifest",
   icons: {
     icon: [
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     url: "https://socialvoid.ca",
     siteName: "SocialVOID",
     title: "SocialVOID - a better internet",
-    description: "The modern discussion platform",
+    description: "A discussion platform built for signal over noise",
     images: [
       {
         url: "/images/socialvoid_og.png",
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "SocialVOID - a better internet",
-    description: "The modern discussion platform",
+    description: "A discussion platform built for signal over noise",
     images: ["/images/socialvoid_og.png"],
   },
   robots: {
